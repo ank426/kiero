@@ -8,6 +8,11 @@ from kiero.detectors import DETECTORS
 from kiero.inpainters import INPAINTERS
 
 
+def _is_batch_input(path: Path) -> bool:
+    """Check if the input path is a directory or CBZ file (batch mode)."""
+    return path.is_dir() or path.suffix.lower() == ".cbz"
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="kiero",
@@ -20,8 +25,13 @@ def main():
         "run",
         help="Detect watermarks and inpaint them (full pipeline).",
     )
-    run_parser.add_argument("input", help="Path to input image.")
-    run_parser.add_argument("-o", "--output", help="Path to save the inpainted result.")
+    run_parser.add_argument(
+        "input",
+        help="Path to input image, directory of images, or .cbz file.",
+    )
+    run_parser.add_argument(
+        "-o", "--output", help="Path to save the result (file, directory, or .cbz)."
+    )
     run_parser.add_argument("--mask-output", help="Path to save the detection mask.")
     run_parser.add_argument(
         "-d",
@@ -39,15 +49,22 @@ def main():
     )
     _add_detector_options(run_parser)
     _add_inpainter_options(run_parser)
+    _add_batch_options(run_parser)
 
     # --- detect: detection only ---
     detect_parser = subparsers.add_parser(
         "detect",
         help="Detect watermarks and save the mask (no inpainting).",
     )
-    detect_parser.add_argument("input", help="Path to input image.")
     detect_parser.add_argument(
-        "-o", "--output", required=True, help="Path to save the mask."
+        "input",
+        help="Path to input image, directory of images, or .cbz file.",
+    )
+    detect_parser.add_argument(
+        "-o",
+        "--output",
+        required=True,
+        help="Path to save the mask (single PNG). For batch input, saves the averaged shared mask.",
     )
     detect_parser.add_argument(
         "-d",
@@ -57,6 +74,7 @@ def main():
         help="Detector to use (default: yolo11x).",
     )
     _add_detector_options(detect_parser)
+    _add_batch_options(detect_parser)
 
     # --- inpaint: inpainting only ---
     inpaint_parser = subparsers.add_parser(
@@ -65,10 +83,16 @@ def main():
     )
     inpaint_parser.add_argument("input", help="Path to input image.")
     inpaint_parser.add_argument(
-        "-o", "--output", required=True, help="Path to save the result."
+        "-o",
+        "--output",
+        required=True,
+        help="Path to save the result.",
     )
     inpaint_parser.add_argument(
-        "-m", "--mask", required=True, help="Path to the binary mask image."
+        "-m",
+        "--mask",
+        required=True,
+        help="Path to the binary mask image.",
     )
     inpaint_parser.add_argument(
         "-i",
@@ -82,9 +106,9 @@ def main():
     # --- compare: run all detectors ---
     compare_parser = subparsers.add_parser(
         "compare",
-        help="Run all detectors on an image and produce a side-by-side comparison.",
+        help="Run all detectors on a single image and produce a side-by-side comparison.",
     )
-    compare_parser.add_argument("input", help="Path to input image.")
+    compare_parser.add_argument("input", help="Path to input image (single file only).")
     compare_parser.add_argument(
         "-o",
         "--output-dir",
@@ -167,6 +191,40 @@ def _add_inpainter_options(parser: argparse.ArgumentParser):
     )
 
 
+def _add_batch_options(parser: argparse.ArgumentParser):
+    """Add batch-mode options to a parser."""
+    group = parser.add_argument_group("batch options")
+    group.add_argument(
+        "--per-image",
+        action="store_true",
+        help="Detect independently per image instead of computing a shared mask. "
+        "Only relevant for directory/CBZ input.",
+    )
+    group.add_argument(
+        "--sample",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Number of images to sample for shared mask averaging. "
+        "Default: use all images. Ignored with --per-image.",
+    )
+    group.add_argument(
+        "--mask-threshold",
+        type=float,
+        default=0.5,
+        help="Fraction of sampled images that must agree for a pixel to be "
+        "in the shared mask (default: 0.5 = detected in >=50%% of samples).",
+    )
+    group.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Batch size for batched GPU detection. Default: auto per detector "
+        "(4 for YOLO, 16 for CLIPSeg).",
+    )
+
+
 def _build_detector_kwargs(args) -> dict:
     """Build kwargs for a detector from CLI args."""
     kwargs = {}
@@ -216,14 +274,59 @@ def _build_inpainter_kwargs(args) -> dict:
 
 def _cmd_run(args):
     """Execute the 'run' command."""
-    from kiero.pipeline import Pipeline
-
     input_path = Path(args.input)
     if not input_path.exists():
-        print(f"Error: Input file not found: {input_path}", file=sys.stderr)
+        print(f"Error: Input not found: {input_path}", file=sys.stderr)
         sys.exit(1)
 
-    # Default output path
+    detector_kwargs = _build_detector_kwargs(args)
+    inpainter_kwargs = _build_inpainter_kwargs(args)
+
+    # --- Batch mode (directory or CBZ) ---
+    if _is_batch_input(input_path):
+        from kiero.batch import run_batch
+        from kiero.detectors import get_detector
+        from kiero.inpainters import get_inpainter
+
+        # Default output path for batch
+        output_path = args.output
+        if output_path is None:
+            if input_path.is_dir():
+                output_path = str(input_path) + "_clean"
+            else:  # CBZ
+                output_path = (
+                    input_path.parent / f"{input_path.stem}_clean{input_path.suffix}"
+                )
+
+        print(f"Input: {input_path}")
+        print(f"Detector: {args.detector}")
+        print(f"Inpainter: {args.inpainter}")
+        print(f"Output: {output_path}")
+        print(f"Mode: {'per-image' if args.per_image else 'shared mask'}")
+        if not args.per_image:
+            sample_str = str(args.sample) if args.sample else "all"
+            print(f"Sample: {sample_str}, mask threshold: {args.mask_threshold}")
+
+        detector = get_detector(args.detector, **detector_kwargs)
+        inpainter = get_inpainter(args.inpainter, **inpainter_kwargs)
+
+        run_batch(
+            input_path=input_path,
+            output_path=Path(output_path),
+            detector=detector,
+            inpainter=inpainter,
+            per_image=args.per_image,
+            sample_n=args.sample,
+            mask_threshold=args.mask_threshold,
+            batch_size=args.batch_size,
+            mask_output=Path(args.mask_output) if args.mask_output else None,
+        )
+        print("Done.")
+        return
+
+    # --- Single image mode ---
+    from kiero.pipeline import Pipeline
+
     output_path = args.output
     if output_path is None:
         output_path = input_path.parent / f"{input_path.stem}_clean{input_path.suffix}"
@@ -232,9 +335,6 @@ def _cmd_run(args):
     print(f"Detector: {args.detector}")
     print(f"Inpainter: {args.inpainter}")
     print(f"Output: {output_path}")
-
-    detector_kwargs = _build_detector_kwargs(args)
-    inpainter_kwargs = _build_inpainter_kwargs(args)
 
     pipeline = Pipeline(
         detector=args.detector,
@@ -248,25 +348,57 @@ def _cmd_run(args):
 
 def _cmd_detect(args):
     """Execute the 'detect' command."""
-    from kiero.pipeline import Pipeline
-
     input_path = Path(args.input)
     if not input_path.exists():
-        print(f"Error: Input file not found: {input_path}", file=sys.stderr)
+        print(f"Error: Input not found: {input_path}", file=sys.stderr)
         sys.exit(1)
+
+    detector_kwargs = _build_detector_kwargs(args)
+
+    # --- Batch mode: compute shared mask ---
+    if _is_batch_input(input_path):
+        from kiero.batch import resolve_inputs, collect_shared_mask
+        from kiero.detectors import get_detector
+        from kiero.utils import save_image
+        import shutil
+
+        print(f"Input: {input_path}")
+        print(f"Detector: {args.detector}")
+
+        detector = get_detector(args.detector, **detector_kwargs)
+        image_paths, source_type, temp_dir = resolve_inputs(input_path)
+        print(f"  Source: {source_type} ({len(image_paths)} images)")
+
+        try:
+            sample_str = str(args.sample) if args.sample else "all"
+            print(f"  Sample: {sample_str}, mask threshold: {args.mask_threshold}")
+
+            mask = collect_shared_mask(
+                image_paths,
+                detector,
+                sample_n=args.sample,
+                threshold=args.mask_threshold,
+                batch_size=args.batch_size,
+            )
+            save_image(mask, args.output)
+            print(f"Shared mask saved to {args.output}")
+        finally:
+            if temp_dir is not None:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+        return
+
+    # --- Single image mode ---
+    from kiero.pipeline import Pipeline
+    from kiero.utils import save_image
 
     print(f"Input: {input_path}")
     print(f"Detector: {args.detector}")
-
-    detector_kwargs = _build_detector_kwargs(args)
 
     pipeline = Pipeline(
         detector=args.detector,
         inpainter="opencv",  # dummy, won't be used
         detector_kwargs=detector_kwargs,
     )
-
-    from kiero.utils import save_image
 
     mask = pipeline.detect(input_path)
     save_image(mask, args.output)

@@ -7,6 +7,9 @@ boxes into a binary mask for the inpainting stage.
 Bounding boxes are inherently imprecise for this task — they include clean artwork
 around the watermark. We provide a `padding` parameter to control how much extra
 area around each detection is included in the mask.
+
+Supports batched inference via Ultralytics' native list input — a single GPU
+forward pass processes multiple images simultaneously for higher throughput.
 """
 
 import numpy as np
@@ -18,6 +21,7 @@ class YoloDetector(WatermarkDetector):
     """YOLO11x based watermark detector."""
 
     MODEL_REPO = "corzent/yolo11x_watermark_detection"
+    default_batch_size = 4  # conservative for laptop GPUs (6-8 GB VRAM)
 
     def __init__(
         self,
@@ -57,34 +61,62 @@ class YoloDetector(WatermarkDetector):
         )
         self._model = YOLO(model_path)
 
+    def _results_to_mask(self, result, h: int, w: int) -> np.ndarray:
+        """Convert a single YOLO result to a binary mask."""
+        mask = np.zeros((h, w), dtype=np.uint8)
+        if result.boxes is None:
+            return mask
+        for box in result.boxes:
+            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
+            x1 = max(0, x1 - self._padding)
+            y1 = max(0, y1 - self._padding)
+            x2 = min(w, x2 + self._padding)
+            y2 = min(h, y2 + self._padding)
+            mask[y1:y2, x1:x2] = 255
+        return mask
+
     def detect(self, image: np.ndarray) -> np.ndarray:
         """Detect watermark regions using YOLO11x."""
         self._load_model()
 
         h, w = image.shape[:2]
-        mask = np.zeros((h, w), dtype=np.uint8)
-
-        # Run inference
         results = self._model(
             image,
             conf=self._confidence,
             device=self._device,
             verbose=False,
         )
+        return self._results_to_mask(results[0], h, w)
 
-        # Convert bounding boxes to mask
-        for result in results:
-            if result.boxes is None:
-                continue
-            for box in result.boxes:
-                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
+    def detect_batch(
+        self, images: list[np.ndarray], batch_size: int | None = None
+    ) -> list[np.ndarray]:
+        """Batched detection using Ultralytics' native list input.
 
-                # Apply padding
-                x1 = max(0, x1 - self._padding)
-                y1 = max(0, y1 - self._padding)
-                x2 = min(w, x2 + self._padding)
-                y2 = min(h, y2 + self._padding)
+        Ultralytics YOLO accepts a list of images and processes them in a
+        single batched GPU forward pass, which is significantly faster than
+        calling detect() in a loop.
+        """
+        if not images:
+            return []
 
-                mask[y1:y2, x1:x2] = 255
+        self._load_model()
+        bs = batch_size or self.default_batch_size
+        masks = []
 
-        return mask
+        for chunk_start in range(0, len(images), bs):
+            chunk = images[chunk_start : chunk_start + bs]
+
+            # Ultralytics accepts a list of numpy arrays directly
+            results = self._model(
+                chunk,
+                conf=self._confidence,
+                device=self._device,
+                verbose=False,
+            )
+
+            for img, result in zip(chunk, results):
+                h, w = img.shape[:2]
+                masks.append(self._results_to_mask(result, h, w))
+
+        return masks

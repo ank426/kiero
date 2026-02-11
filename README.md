@@ -17,21 +17,68 @@ CLIPSeg, ~200 MB for LaMa). They are cached in `~/.cache/huggingface` and
 
 ## Usage
 
+Input can be a **single image**, a **directory of images**, or a **`.cbz` archive**.
+Output format mirrors the input: directory in -> directory out, CBZ in -> CBZ out.
+
 ### Full pipeline (detect + inpaint)
 
 ```bash
+# Single image
 kiero run -d yolo11x -i lama input.png -o clean.png
+
+# Directory of images
+kiero run imgs/ -o imgs_clean/
+
+# CBZ archive
+kiero run manga.cbz -o manga_clean.cbz
 ```
 
 Default detector is `yolo11x`, default inpainter is `lama`. Output path is
-optional and defaults to `<input_stem>_clean.<ext>`.
+optional and defaults to `<input_stem>_clean.<ext>` (or `<dir>_clean/`).
+
+### Batch mode: shared mask vs per-image
+
+When processing a directory or CBZ, kiero assumes all images share the same
+watermark. It runs detection on a sample of images, averages the masks, and
+applies the resulting shared mask to every image. This is faster and filters
+out false positives (a pixel must be flagged in multiple images to survive
+averaging).
+
+```bash
+# Default: shared mask from all images
+kiero run imgs/ -o clean/
+
+# Sample only 10 images for mask averaging (much faster)
+kiero run imgs/ -o clean/ --sample 10
+
+# Require 30% agreement instead of default 50%
+kiero run imgs/ -o clean/ --sample 10 --mask-threshold 0.3
+
+# Save the shared mask for inspection
+kiero run imgs/ -o clean/ --sample 10 --mask-output shared_mask.png
+
+# Per-image mode: detect independently per image (no averaging)
+kiero run imgs/ -o clean/ --per-image
+```
+
+YOLO and CLIPSeg detectors use **batched GPU inference** during shared mask
+computation — multiple images are processed in a single forward pass for
+higher throughput. Batch size is configurable:
+
+```bash
+kiero run imgs/ -o clean/ --sample 20 --batch-size 8
+```
 
 ### Detection only
 
 Save the binary mask for inspection or manual editing:
 
 ```bash
+# Single image
 kiero detect -d clipseg input.png -o mask.png
+
+# Batch: outputs the averaged shared mask
+kiero detect imgs/ -o shared_mask.png --sample 10
 ```
 
 ### Inpainting only
@@ -87,6 +134,15 @@ This saves per-detector masks (`mask_<name>.png`), per-detector results
 --inp-radius 3       # OpenCV neighborhood radius
 ```
 
+### Batch options
+
+```
+--per-image          # Detect per image instead of shared mask
+--sample N           # Sample N images for mask averaging (default: all)
+--mask-threshold 0.5 # Agreement fraction for shared mask (default: 0.5)
+--batch-size N       # GPU batch size (default: 4 for YOLO, 16 for CLIPSeg)
+```
+
 ## Adding a new detector or inpainter
 
 1. Create a new file in `kiero/detectors/` (or `kiero/inpainters/`).
@@ -109,6 +165,10 @@ class WatermarkDetector(ABC):
     def detect(self, image: np.ndarray) -> np.ndarray:
         """BGR image in, (H, W) uint8 mask out. 255 = watermark, 0 = clean."""
         ...
+
+    def detect_batch(self, images: list[np.ndarray], batch_size: int | None = None) -> list[np.ndarray]:
+        """Optional: override for GPU-batched detection."""
+        return [self.detect(img) for img in images]
 ```
 
 ### Inpainter interface
@@ -131,14 +191,15 @@ class Inpainter(ABC):
 kiero/
   __init__.py
   cli.py              # argparse CLI
-  pipeline.py         # Orchestration + compare logic
+  pipeline.py         # Single-image orchestration + compare
+  batch.py            # Batch processing (directory/CBZ), shared mask averaging
   utils.py            # Image I/O, mask overlay, comparison grid
   detectors/
     __init__.py        # Registry
-    base.py            # ABC
+    base.py            # ABC (detect + detect_batch)
     template.py        # OpenCV template matching / heuristic
-    yolo.py            # YOLO11x
-    clipseg.py         # CLIPSeg
+    yolo.py            # YOLO11x (batched GPU inference)
+    clipseg.py         # CLIPSeg (batched GPU inference)
   inpainters/
     __init__.py        # Registry
     base.py            # ABC

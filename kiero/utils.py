@@ -5,6 +5,29 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
+
+
+def list_images(directory: str | Path) -> list[Path]:
+    """List image files in a directory, sorted by name.
+
+    Args:
+        directory: Path to directory.
+
+    Returns:
+        Sorted list of image file paths.
+    """
+    directory = Path(directory)
+    if not directory.is_dir():
+        raise NotADirectoryError(f"Not a directory: {directory}")
+    images = [
+        p
+        for p in directory.iterdir()
+        if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
+    ]
+    images.sort(key=lambda p: p.name)
+    return images
+
 
 def load_image(path: str | Path) -> np.ndarray:
     """Load an image from disk.
