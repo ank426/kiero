@@ -1,0 +1,147 @@
+# kiero
+
+Manga watermark detector and remover. Modular pipeline that pairs swappable
+**detectors** (locate the watermark) with swappable **inpainters** (fill it in).
+
+## Install
+
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
+
+```bash
+uv sync
+```
+
+Models are downloaded automatically on first use (~200 MB for YOLO, ~400 MB for
+CLIPSeg, ~200 MB for LaMa). They are cached in `~/.cache/huggingface` and
+`~/.cache/torch`.
+
+## Usage
+
+### Full pipeline (detect + inpaint)
+
+```bash
+kiero run -d yolo11x -i lama input.png -o clean.png
+```
+
+Default detector is `yolo11x`, default inpainter is `lama`. Output path is
+optional and defaults to `<input_stem>_clean.<ext>`.
+
+### Detection only
+
+Save the binary mask for inspection or manual editing:
+
+```bash
+kiero detect -d clipseg input.png -o mask.png
+```
+
+### Inpainting only
+
+Bring your own mask (white = watermark, black = clean):
+
+```bash
+kiero inpaint -i lama -m mask.png input.png -o result.png
+```
+
+### Compare all detectors
+
+Run every registered detector on the same image, inpaint each result, and
+produce a side-by-side comparison grid:
+
+```bash
+kiero compare input.png -o comparison_output/
+```
+
+This saves per-detector masks (`mask_<name>.png`), per-detector results
+(`result_<name>.png`), and a `comparison.png` grid image.
+
+## Detectors
+
+| Name | Type | Description |
+|---|---|---|
+| `yolo11x` | Bounding box | [corzent/yolo11x_watermark_detection](https://huggingface.co/corzent/yolo11x_watermark_detection). Best published metrics (mAP@50 = 0.90). Outputs bounding boxes converted to masks. |
+| `clipseg` | Heatmap | [CIDAS/clipseg-rd64-refined](https://huggingface.co/CIDAS/clipseg-rd64-refined). Zero-shot text-prompted segmentation. No watermark-specific training. Configurable prompt via `--prompt`. |
+| `template` | Template / Heuristic | OpenCV `matchTemplate` when given `--template path.png`. Falls back to a heuristic mode (local contrast + frequency analysis) when no template is provided. |
+
+### Detector options
+
+```
+--confidence 0.25    # YOLO detection threshold (0-1)
+--prompt "watermark"  # CLIPSeg text prompt
+--template crop.png  # Template image for template detector
+--det-threshold 0.3  # Heatmap/matching threshold
+--dilate 10          # Pixels to dilate the mask by
+--device cuda        # Force device (default: auto)
+```
+
+## Inpainters
+
+| Name | Type | Description |
+|---|---|---|
+| `lama` | Neural | [LaMa](https://github.com/advimman/lama) via `simple-lama-inpainting`. Uses Fast Fourier Convolutions for a global receptive field — good at reconstructing periodic patterns like screentone. Auto-downscales images larger than 2048px. |
+| `opencv` | Classical | `cv2.inpaint()` with Telea or Navier-Stokes method. Very fast, no GPU needed. Useful as a baseline. |
+
+### Inpainter options
+
+```
+--inp-method telea   # OpenCV method: "telea" or "ns"
+--inp-radius 3       # OpenCV neighborhood radius
+```
+
+## Adding a new detector or inpainter
+
+1. Create a new file in `kiero/detectors/` (or `kiero/inpainters/`).
+2. Implement the `WatermarkDetector` (or `Inpainter`) abstract base class.
+3. Add one entry to the `DETECTORS` (or `INPAINTERS`) dict in the package
+   `__init__.py`.
+
+The new model is immediately available via `--detector`/`--inpainter` flags and
+is included in `compare` mode.
+
+### Detector interface
+
+```python
+class WatermarkDetector(ABC):
+    @property
+    @abstractmethod
+    def name(self) -> str: ...
+
+    @abstractmethod
+    def detect(self, image: np.ndarray) -> np.ndarray:
+        """BGR image in, (H, W) uint8 mask out. 255 = watermark, 0 = clean."""
+        ...
+```
+
+### Inpainter interface
+
+```python
+class Inpainter(ABC):
+    @property
+    @abstractmethod
+    def name(self) -> str: ...
+
+    @abstractmethod
+    def inpaint(self, image: np.ndarray, mask: np.ndarray) -> np.ndarray:
+        """BGR image + uint8 mask in, BGR image out."""
+        ...
+```
+
+## Project structure
+
+```
+kiero/
+  __init__.py
+  cli.py              # argparse CLI
+  pipeline.py         # Orchestration + compare logic
+  utils.py            # Image I/O, mask overlay, comparison grid
+  detectors/
+    __init__.py        # Registry
+    base.py            # ABC
+    template.py        # OpenCV template matching / heuristic
+    yolo.py            # YOLO11x
+    clipseg.py         # CLIPSeg
+  inpainters/
+    __init__.py        # Registry
+    base.py            # ABC
+    opencv.py          # Classical inpainting
+    lama.py            # LaMa neural inpainting
+```

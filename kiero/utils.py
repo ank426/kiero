@@ -1,0 +1,162 @@
+"""Utility functions for image I/O, mask visualization, and comparison output."""
+
+from pathlib import Path
+
+import cv2
+import numpy as np
+
+
+def load_image(path: str | Path) -> np.ndarray:
+    """Load an image from disk.
+
+    Args:
+        path: Path to the image file.
+
+    Returns:
+        Image as numpy array, shape (H, W, 3), dtype uint8, BGR format.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        ValueError: If the file cannot be read as an image.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Image not found: {path}")
+    image = cv2.imread(str(path), cv2.IMREAD_COLOR)
+    if image is None:
+        raise ValueError(f"Could not read image: {path}")
+    return image
+
+
+def save_image(image: np.ndarray, path: str | Path) -> None:
+    """Save an image to disk.
+
+    Args:
+        image: Image array (BGR or grayscale).
+        path: Output path. Parent directories are created if needed.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    cv2.imwrite(str(path), image)
+
+
+def load_mask(path: str | Path) -> np.ndarray:
+    """Load a mask from disk.
+
+    Args:
+        path: Path to the mask image (should be grayscale or will be converted).
+
+    Returns:
+        Mask as numpy array, shape (H, W), dtype uint8.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Mask not found: {path}")
+    mask = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+    if mask is None:
+        raise ValueError(f"Could not read mask: {path}")
+    return mask
+
+
+def overlay_mask(
+    image: np.ndarray, mask: np.ndarray, color=(0, 0, 255), alpha=0.4
+) -> np.ndarray:
+    """Overlay a mask on an image for visualization.
+
+    Watermark regions (mask=255) are tinted with the given color.
+
+    Args:
+        image: Input image, shape (H, W, 3), BGR.
+        mask: Binary mask, shape (H, W), uint8.
+        color: BGR color to tint the masked regions.
+        alpha: Opacity of the tint overlay.
+
+    Returns:
+        Visualization image with mask overlay.
+    """
+    vis = image.copy()
+    mask_bool = mask > 127
+    overlay = np.full_like(image, color, dtype=np.uint8)
+    vis[mask_bool] = cv2.addWeighted(image, 1 - alpha, overlay, alpha, 0)[mask_bool]
+    return vis
+
+
+def make_comparison(
+    original: np.ndarray,
+    results: list[tuple[str, np.ndarray, np.ndarray]],
+    max_width: int = 800,
+) -> np.ndarray:
+    """Create a side-by-side comparison image.
+
+    Produces a grid: [original | mask1 | result1 | mask2 | result2 | ...]
+
+    Args:
+        original: Original input image.
+        results: List of (detector_name, mask, inpainted_result) tuples.
+        max_width: Maximum width for each panel. Images are scaled down if wider.
+
+    Returns:
+        Comparison image as numpy array.
+    """
+    h, w = original.shape[:2]
+
+    # Compute scale factor to fit panels in max_width
+    scale = min(1.0, max_width / w)
+    new_w = int(w * scale)
+    new_h = int(h * scale)
+
+    panels = []
+
+    # Original panel with label
+    orig_resized = cv2.resize(original, (new_w, new_h))
+    orig_labeled = _add_label(orig_resized, "Original")
+    panels.append(orig_labeled)
+
+    for det_name, mask, inpainted in results:
+        # Mask panel — convert to 3-channel for display
+        mask_vis = overlay_mask(original, mask)
+        mask_resized = cv2.resize(mask_vis, (new_w, new_h))
+        mask_labeled = _add_label(mask_resized, f"Mask: {det_name}")
+        panels.append(mask_labeled)
+
+        # Inpainted result panel
+        result_resized = cv2.resize(inpainted, (new_w, new_h))
+        result_labeled = _add_label(result_resized, f"Result: {det_name}")
+        panels.append(result_labeled)
+
+    # Stack horizontally if 3 or fewer panels, otherwise in a grid
+    if len(panels) <= 3:
+        return np.hstack(panels)
+    else:
+        # Arrange in rows of 3
+        rows = []
+        for i in range(0, len(panels), 3):
+            row_panels = panels[i : i + 3]
+            # Pad the last row if needed
+            while len(row_panels) < 3:
+                row_panels.append(np.zeros_like(panels[0]))
+            rows.append(np.hstack(row_panels))
+        return np.vstack(rows)
+
+
+def _add_label(image: np.ndarray, label: str) -> np.ndarray:
+    """Add a text label to the top of an image."""
+    h, w = image.shape[:2]
+    label_height = 30
+    labeled = np.zeros((h + label_height, w, 3), dtype=np.uint8)
+    labeled[label_height:, :] = image
+
+    # Draw label background
+    labeled[:label_height, :] = (40, 40, 40)
+
+    # Draw text
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.5
+    thickness = 1
+    text_size = cv2.getTextSize(label, font, font_scale, thickness)[0]
+    text_x = (w - text_size[0]) // 2
+    text_y = (label_height + text_size[1]) // 2
+    cv2.putText(
+        labeled, label, (text_x, text_y), font, font_scale, (255, 255, 255), thickness
+    )
+    return labeled
