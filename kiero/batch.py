@@ -333,3 +333,67 @@ def run_batch(
         # Clean up temp output dir (only if CBZ — out_dir is a temp dir)
         if source_type == "cbz" and out_dir is not None:
             shutil.rmtree(out_dir, ignore_errors=True)
+
+
+def inpaint_batch(
+    input_path: Path,
+    output_path: Path,
+    mask: np.ndarray,
+    inpainter: Inpainter,
+) -> None:
+    """Apply a pre-computed mask to every image in a directory or CBZ.
+
+    Args:
+        input_path: Path to input directory or CBZ file.
+        output_path: Path for output directory or CBZ file.
+        mask: Binary mask to apply to all images.
+        inpainter: Inpainter instance.
+    """
+    total_t0 = time.time()
+
+    image_paths, source_type, temp_dir = resolve_inputs(input_path)
+    n = len(image_paths)
+    print(f"  Source: {source_type} ({n} images)")
+
+    n_masked, _, pct = mask_stats(mask)
+    if n_masked == 0:
+        print("  Mask is empty — nothing to inpaint.")
+
+    out_dir: Path | None = None
+    try:
+        if source_type == "cbz":
+            out_dir = Path(tempfile.mkdtemp(prefix="kiero_out_"))
+        else:
+            out_dir = Path(output_path)
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+        for i, p in enumerate(image_paths):
+            t0 = time.time()
+            image = load_image(p)
+
+            if n_masked > 0:
+                result = inpainter.inpaint(image, mask)
+            else:
+                result = image
+
+            out_p = out_dir / p.name
+            save_image(result, out_p)
+            elapsed = time.time() - t0
+            print(f"  [{i + 1}/{n}] {p.name} ({elapsed:.1f}s)")
+
+        if source_type == "cbz":
+            output_images = sorted(p for p in out_dir.rglob("*") if p.is_file())
+            write_cbz(output_images, Path(output_path), root_dir=out_dir)
+            print(f"\n  CBZ written to {output_path}")
+
+        total_elapsed = time.time() - total_t0
+        print(
+            f"\n  Batch complete: {n} images in {total_elapsed:.1f}s "
+            f"({total_elapsed / n:.1f}s/image avg)"
+        )
+
+    finally:
+        if temp_dir is not None:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        if source_type == "cbz" and out_dir is not None:
+            shutil.rmtree(out_dir, ignore_errors=True)

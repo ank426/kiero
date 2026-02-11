@@ -98,18 +98,21 @@ def main():
         "inpaint",
         help="Inpaint masked regions using a provided mask.",
     )
-    inpaint_parser.add_argument("input", help="Path to input image.")
+    inpaint_parser.add_argument(
+        "input",
+        help="Path to input image, directory of images, or .cbz file.",
+    )
     inpaint_parser.add_argument(
         "-o",
         "--output",
         required=True,
-        help="Path to save the result.",
+        help="Path to save the result (file, directory, or .cbz).",
     )
     inpaint_parser.add_argument(
         "-m",
         "--mask",
         required=True,
-        help="Path to the binary mask image.",
+        help="Path to the binary mask image (applied to all images in batch mode).",
     )
     inpaint_parser.add_argument(
         "-i",
@@ -428,7 +431,7 @@ def _cmd_inpaint(args):
     input_path = Path(args.input)
     mask_path = Path(args.mask)
 
-    _require_exists(input_path, "Input file")
+    _require_exists(input_path, "Input")
     _require_exists(mask_path, "Mask file")
 
     print(f"Input: {input_path}")
@@ -437,9 +440,24 @@ def _cmd_inpaint(args):
 
     inpainter_kwargs = _build_inpainter_kwargs(args)
     inpainter = get_inpainter(args.inpainter, **inpainter_kwargs)
-
-    image = load_image(input_path)
     mask = load_mask(mask_path)
+
+    # --- Batch mode (directory or CBZ) ---
+    if _is_batch_input(input_path):
+        from kiero.batch import inpaint_batch
+
+        print(f"Output: {args.output}")
+        inpaint_batch(
+            input_path=input_path,
+            output_path=Path(args.output),
+            mask=mask,
+            inpainter=inpainter,
+        )
+        print("Done.")
+        return
+
+    # --- Single image mode ---
+    image = load_image(input_path)
 
     t0 = time.time()
     result = inpainter.inpaint(image, mask)
