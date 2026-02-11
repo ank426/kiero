@@ -4,8 +4,58 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from PIL import Image
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
+
+
+def mask_stats(mask: np.ndarray) -> tuple[int, int, float]:
+    """Compute basic statistics about a binary mask.
+
+    Args:
+        mask: Binary mask, shape (H, W), dtype uint8, values 0 or 255.
+
+    Returns:
+        Tuple of (n_masked, total, percentage).
+        - n_masked: number of non-zero pixels.
+        - total: total number of pixels (H * W).
+        - percentage: n_masked / total * 100.
+    """
+    n_masked = int(np.count_nonzero(mask))
+    total = mask.shape[0] * mask.shape[1]
+    pct = n_masked / total * 100 if total > 0 else 0.0
+    return n_masked, total, pct
+
+
+def dilate_mask(mask: np.ndarray, px: int) -> np.ndarray:
+    """Dilate a binary mask by a given number of pixels.
+
+    Uses an elliptical structuring element for smooth expansion.
+
+    Args:
+        mask: Binary mask, shape (H, W), dtype uint8.
+        px: Number of pixels to dilate by. If <= 0, mask is returned unchanged.
+
+    Returns:
+        Dilated mask, same shape and dtype.
+    """
+    if px <= 0:
+        return mask
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (px * 2 + 1, px * 2 + 1))
+    return cv2.dilate(mask, kernel, iterations=1)
+
+
+def bgr_to_pil(image: np.ndarray) -> Image.Image:
+    """Convert a BGR numpy array to an RGB PIL Image.
+
+    Args:
+        image: Image array, shape (H, W, 3), dtype uint8, BGR channel order.
+
+    Returns:
+        PIL Image in RGB mode.
+    """
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    return Image.fromarray(rgb)
 
 
 def list_images(directory: str | Path) -> list[Path]:
@@ -60,7 +110,9 @@ def save_image(image: np.ndarray, path: str | Path) -> None:
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    cv2.imwrite(str(path), image)
+    ok = cv2.imwrite(str(path), image)
+    if not ok:
+        raise IOError(f"Failed to write image: {path}")
 
 
 def load_mask(path: str | Path) -> np.ndarray:

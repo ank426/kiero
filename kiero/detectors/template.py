@@ -23,6 +23,7 @@ import cv2
 import numpy as np
 
 from kiero.detectors.base import WatermarkDetector
+from kiero.utils import dilate_mask
 
 
 class TemplateDetector(WatermarkDetector):
@@ -110,12 +111,7 @@ class TemplateDetector(WatermarkDetector):
                 mask[pt_y : pt_y + t.shape[0], pt_x : pt_x + t.shape[1]] = 255
 
         # Dilate to cover edges
-        if self._dilate_px > 0:
-            kernel = cv2.getStructuringElement(
-                cv2.MORPH_ELLIPSE,
-                (self._dilate_px * 2 + 1, self._dilate_px * 2 + 1),
-            )
-            mask = cv2.dilate(mask, kernel, iterations=1)
+        mask = dilate_mask(mask, self._dilate_px)
 
         return mask
 
@@ -193,11 +189,6 @@ class TemplateDetector(WatermarkDetector):
         combined = cv2.morphologyEx(combined, cv2.MORPH_CLOSE, kernel_close)
 
         # Dilate
-        if self._dilate_px > 0:
-            kernel = cv2.getStructuringElement(
-                cv2.MORPH_ELLIPSE,
-                (self._dilate_px * 2 + 1, self._dilate_px * 2 + 1),
-            )
-            combined = cv2.dilate(combined, kernel, iterations=1)
+        combined = dilate_mask(combined, self._dilate_px)
 
         return combined

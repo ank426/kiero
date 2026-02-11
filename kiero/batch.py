@@ -16,12 +16,17 @@ import time
 import zipfile
 from pathlib import Path
 
-import cv2
 import numpy as np
 
 from kiero.detectors.base import WatermarkDetector
 from kiero.inpainters.base import Inpainter
-from kiero.utils import IMAGE_EXTENSIONS, list_images, load_image, save_image
+from kiero.utils import (
+    IMAGE_EXTENSIONS,
+    list_images,
+    load_image,
+    save_image,
+    mask_stats,
+)
 
 
 def resolve_inputs(input_path: Path) -> tuple[list[Path], str, Path | None]:
@@ -57,9 +62,21 @@ def _extract_cbz(cbz_path: Path) -> tuple[list[Path], str, Path]:
 
     Returns:
         Tuple of (image_paths, "cbz", temp_dir_path).
+
+    Raises:
+        ValueError: If the archive contains entries with path traversal.
     """
     temp_dir = Path(tempfile.mkdtemp(prefix="kiero_cbz_"))
     with zipfile.ZipFile(cbz_path, "r") as zf:
+        # Validate paths to prevent zip-slip attacks
+        for member in zf.namelist():
+            dest = (temp_dir / member).resolve()
+            if not str(dest).startswith(str(temp_dir.resolve())):
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                raise ValueError(
+                    f"Zip slip detected in {cbz_path}: member '{member}' "
+                    f"escapes extraction directory"
+                )
         zf.extractall(temp_dir)
 
     # Collect image files (may be in subdirectories)
@@ -75,20 +92,31 @@ def _extract_cbz(cbz_path: Path) -> tuple[list[Path], str, Path]:
     return images, "cbz", temp_dir
 
 
-def write_cbz(image_paths: list[Path], output_path: Path) -> None:
+def write_cbz(
+    image_paths: list[Path], output_path: Path, root_dir: Path | None = None
+) -> None:
     """Create a CBZ archive from a list of image files.
 
     Uses ZIP_STORED (no compression) since images are already compressed.
-    Files are stored with just their filename (no directory prefix).
 
     Args:
         image_paths: List of image file paths to include.
         output_path: Path for the output .cbz file.
+        root_dir: If provided, archive paths are relative to this directory,
+            preserving subdirectory structure. Otherwise files are stored flat
+            using just their filename.
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_STORED) as zf:
         for p in image_paths:
-            zf.write(p, arcname=p.name)
+            if root_dir is not None:
+                arcname = str(p.relative_to(root_dir))
+            else:
+                arcname = p.name
+            zf.write(p, arcname=arcname)
+
+
+_DEFAULT_LOAD_CHUNK = 20  # images loaded into RAM at a time
 
 
 def collect_shared_mask(
@@ -97,13 +125,16 @@ def collect_shared_mask(
     sample_n: int | None = None,
     threshold: float = 0.5,
     batch_size: int | None = None,
+    load_chunk: int = _DEFAULT_LOAD_CHUNK,
 ) -> np.ndarray:
     """Build a shared mask by averaging detection across multiple images.
 
     Strategy:
     1. Optionally sample a subset of images.
-    2. Run detector on all sampled images (batched if detector supports it).
-    3. Accumulate masks as float32, average, threshold to binary.
+    2. Load *load_chunk* images into RAM at a time, run ``detect_batch``
+       (which internally chunks by the detector's GPU batch size), accumulate
+       only the float32 mask sum.  Images are discarded after each chunk.
+    3. Average the accumulated mask and threshold to binary.
 
     A pixel must be detected as watermark in >= (threshold * 100)% of sampled
     images to appear in the final mask. This filters out false positives that
@@ -115,7 +146,8 @@ def collect_shared_mask(
         sample_n: Number of images to sample for averaging. None = use all.
         threshold: Fraction of samples that must agree for a pixel to be masked.
             Default 0.5 = detected in at least half the samples.
-        batch_size: Batch size for batched detection. None = use detector default.
+        batch_size: GPU batch size for detection. None = use detector default.
+        load_chunk: Number of images to load into RAM at once (default 20).
 
     Returns:
         Binary mask, shape (H, W), dtype uint8, values 0 or 255.
@@ -131,39 +163,59 @@ def collect_shared_mask(
     n = len(sampled)
     print(f"  Computing shared mask from {n} images...")
 
-    # Load all sampled images into memory
-    t0 = time.time()
-    images = [load_image(p) for p in sampled]
-    load_time = time.time() - t0
-    print(f"  Loaded {n} images in {load_time:.1f}s")
+    mask_sum: np.ndarray | None = None  # float32 (H, W) accumulator
+    ref_shape: tuple[int, int] | None = None
+    det_t0 = time.time()
 
-    # Verify all images have the same dimensions
-    shapes = {img.shape[:2] for img in images}
-    if len(shapes) > 1:
-        raise ValueError(
-            f"Cannot compute shared mask: images have different dimensions: "
-            f"{shapes}. Use --per-image mode instead."
-        )
+    for chunk_start in range(0, n, load_chunk):
+        chunk_paths = sampled[chunk_start : chunk_start + load_chunk]
 
-    # Run batched detection
-    t0 = time.time()
-    masks = detector.detect_batch(images, batch_size=batch_size)
-    det_time = time.time() - t0
-    print(f"  Batched detection done in {det_time:.1f}s ({det_time / n:.2f}s/image)")
+        # Load this chunk into memory
+        images = [load_image(p) for p in chunk_paths]
 
-    # Average masks using numpy vectorization
-    # Stack all masks into a single (N, H, W) float32 array and compute mean
-    # along axis 0 — this is a single vectorized operation, no Python loops.
-    t0 = time.time()
-    mask_stack = np.stack(masks, axis=0).astype(np.float32) / 255.0  # (N, H, W)
-    mask_avg = mask_stack.mean(axis=0)  # (H, W), values 0.0-1.0
+        # Verify all images in this chunk have the same dimensions
+        shapes = {img.shape[:2] for img in images}
+        if ref_shape is None:
+            if len(shapes) > 1:
+                raise ValueError(
+                    f"Cannot compute shared mask: images have different "
+                    f"dimensions: {shapes}. Use --per-image mode instead."
+                )
+            ref_shape = next(iter(shapes))
+        else:
+            for s in shapes:
+                if s != ref_shape:
+                    raise ValueError(
+                        f"Cannot compute shared mask: images have different "
+                        f"dimensions: {ref_shape} vs {s}. Use --per-image "
+                        f"mode instead."
+                    )
+
+        # Run batched detection — detect_batch handles GPU chunking internally
+        masks = detector.detect_batch(images, batch_size=batch_size)
+
+        # Accumulate mask values
+        for m in masks:
+            m_f = m.astype(np.float32) / 255.0
+            if mask_sum is None:
+                mask_sum = m_f
+            else:
+                mask_sum += m_f
+
+        chunk_end = min(chunk_start + load_chunk, n)
+        print(f"  Processed {chunk_end}/{n} images...")
+
+    det_time = time.time() - det_t0
+    print(f"  Detection done in {det_time:.1f}s ({det_time / n:.2f}s/image)")
+
+    # Average and threshold
+    if mask_sum is None:
+        raise ValueError("No images to process")
+    mask_avg = mask_sum / n  # (H, W), values 0.0-1.0
     shared_mask = (mask_avg >= threshold).astype(np.uint8) * 255
-    avg_time = time.time() - t0
 
-    n_pixels = np.count_nonzero(shared_mask)
-    total_pixels = shared_mask.shape[0] * shared_mask.shape[1]
-    pct = n_pixels / total_pixels * 100
-    print(f"  Mask averaging done in {avg_time:.2f}s — {pct:.1f}% of image masked")
+    n_masked, _, pct = mask_stats(shared_mask)
+    print(f"  Shared mask: {pct:.1f}% of image masked")
 
     return shared_mask
 
@@ -199,6 +251,7 @@ def run_batch(
     n = len(image_paths)
     print(f"  Source: {source_type} ({n} images)")
 
+    out_dir: Path | None = None
     try:
         # Determine output directory for cleaned images
         if source_type == "cbz":
@@ -222,15 +275,12 @@ def run_batch(
                 save_image(shared_mask, mask_output)
                 print(f"  Shared mask saved to {mask_output}")
 
-            n_masked = np.count_nonzero(shared_mask)
+            n_masked, _, _ = mask_stats(shared_mask)
             if n_masked == 0:
                 print("  No watermark detected in shared mask. Copying originals.")
                 for i, p in enumerate(image_paths):
                     out_p = out_dir / p.name
-                    if source_type == "directory":
-                        shutil.copy2(p, out_p)
-                    else:
-                        shutil.copy2(p, out_p)
+                    shutil.copy2(p, out_p)
                     print(f"  [{i + 1}/{n}] {p.name} (copied)")
             else:
                 # Inpaint each image with the shared mask
@@ -252,7 +302,7 @@ def run_batch(
                 image = load_image(p)
 
                 mask = detector.detect(image)
-                n_masked = np.count_nonzero(mask)
+                n_masked, _, pct = mask_stats(mask)
 
                 if n_masked > 0:
                     result = inpainter.inpaint(image, mask)
@@ -262,16 +312,13 @@ def run_batch(
                 out_p = out_dir / p.name
                 save_image(result, out_p)
                 elapsed = time.time() - t0
-                pct = n_masked / (mask.shape[0] * mask.shape[1]) * 100
                 print(f"  [{i + 1}/{n}] {p.name} ({elapsed:.1f}s, {pct:.1f}% masked)")
 
         # --- Write output ---
         if source_type == "cbz":
-            output_images = sorted(out_dir.iterdir(), key=lambda p: p.name)
-            write_cbz(output_images, Path(output_path))
+            output_images = sorted(p for p in out_dir.rglob("*") if p.is_file())
+            write_cbz(output_images, Path(output_path), root_dir=out_dir)
             print(f"\n  CBZ written to {output_path}")
-            # Clean up temp output dir
-            shutil.rmtree(out_dir, ignore_errors=True)
 
         total_elapsed = time.time() - total_t0
         print(
@@ -283,3 +330,6 @@ def run_batch(
         # Clean up temp CBZ extraction dir
         if temp_dir is not None:
             shutil.rmtree(temp_dir, ignore_errors=True)
+        # Clean up temp output dir (only if CBZ — out_dir is a temp dir)
+        if source_type == "cbz" and out_dir is not None:
+            shutil.rmtree(out_dir, ignore_errors=True)

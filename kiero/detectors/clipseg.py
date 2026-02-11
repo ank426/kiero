@@ -12,9 +12,11 @@ Supports batched inference — multiple images are stacked into a single tensor 
 processed in one GPU forward pass for higher throughput.
 """
 
+import cv2
 import numpy as np
 
 from kiero.detectors.base import WatermarkDetector
+from kiero.utils import dilate_mask, bgr_to_pil
 
 
 class ClipSegDetector(WatermarkDetector):
@@ -73,33 +75,18 @@ class ClipSegDetector(WatermarkDetector):
 
     def _heatmap_to_mask(self, heatmap: np.ndarray, h: int, w: int) -> np.ndarray:
         """Convert a single CLIPSeg heatmap to a binary mask at target resolution."""
-        import cv2
-
         heatmap_resized = cv2.resize(heatmap, (w, h), interpolation=cv2.INTER_LINEAR)
         mask = (heatmap_resized > self._threshold).astype(np.uint8) * 255
-
-        if self._dilate_px > 0:
-            kernel = cv2.getStructuringElement(
-                cv2.MORPH_ELLIPSE,
-                (self._dilate_px * 2 + 1, self._dilate_px * 2 + 1),
-            )
-            mask = cv2.dilate(mask, kernel, iterations=1)
-
-        return mask
+        return dilate_mask(mask, self._dilate_px)
 
     def detect(self, image: np.ndarray) -> np.ndarray:
         """Detect watermark regions using CLIPSeg."""
-        import cv2
         import torch
-        from PIL import Image
 
         self._load_model()
 
         h, w = image.shape[:2]
-
-        # Convert BGR (OpenCV) to RGB (PIL)
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        pil_image = Image.fromarray(image_rgb)
+        pil_image = bgr_to_pil(image)
 
         # Run CLIPSeg
         inputs = self._processor(
@@ -127,9 +114,7 @@ class ClipSegDetector(WatermarkDetector):
         if not images:
             return []
 
-        import cv2
         import torch
-        from PIL import Image
 
         self._load_model()
         bs = batch_size or self.default_batch_size
@@ -144,8 +129,7 @@ class ClipSegDetector(WatermarkDetector):
             sizes = []  # (h, w) per image for mask resizing
             for img in chunk:
                 sizes.append(img.shape[:2])
-                rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                pil_images.append(Image.fromarray(rgb))
+                pil_images.append(bgr_to_pil(img))
 
             # Repeat prompt for each image in the batch
             inputs = self._processor(

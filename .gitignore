@@ -13,6 +13,7 @@ wheels/
 comparison_output/
 imgs/
 output/
+*.png
 
 # Model cache
 *.pt

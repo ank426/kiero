@@ -11,9 +11,11 @@ For very large images (>2048 on either dimension), we downscale before inpaintin
 and then composite the result back at original resolution to avoid OOM on laptop GPUs.
 """
 
+import cv2
 import numpy as np
 
 from kiero.inpainters.base import Inpainter
+from kiero.utils import bgr_to_pil
 
 # Max dimension for LaMa inference. Images larger than this are downscaled.
 _MAX_DIM = 2048
@@ -61,7 +63,6 @@ class LamaInpainter(Inpainter):
         3. Upscale the inpainted result
         4. Composite: only replace pixels that were masked in the original
         """
-        import cv2
         from PIL import Image
         from kiero.utils import conform_mask
 
@@ -86,8 +87,7 @@ class LamaInpainter(Inpainter):
             mask_small = mask
 
         # simple-lama-inpainting expects PIL images in RGB
-        image_rgb = cv2.cvtColor(image_small, cv2.COLOR_BGR2RGB)
-        pil_image = Image.fromarray(image_rgb)
+        pil_image = bgr_to_pil(image_small)
         pil_mask = Image.fromarray(mask_small)
 
         # Run LaMa

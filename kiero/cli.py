@@ -1,16 +1,33 @@
 """CLI entry point for kiero."""
 
 import argparse
+import shutil
 import sys
+import time
 from pathlib import Path
 
 from kiero.detectors import DETECTORS
 from kiero.inpainters import INPAINTERS
 
 
+def _threshold_float(value: str) -> float:
+    """Argparse type for a float in [0, 1]."""
+    f = float(value)
+    if not 0.0 <= f <= 1.0:
+        raise argparse.ArgumentTypeError(f"must be between 0 and 1, got {f}")
+    return f
+
+
 def _is_batch_input(path: Path) -> bool:
     """Check if the input path is a directory or CBZ file (batch mode)."""
     return path.is_dir() or path.suffix.lower() == ".cbz"
+
+
+def _require_exists(path: Path, label: str = "Input") -> None:
+    """Exit with an error if *path* does not exist."""
+    if not path.exists():
+        print(f"Error: {label} not found: {path}", file=sys.stderr)
+        sys.exit(1)
 
 
 def main():
@@ -210,7 +227,7 @@ def _add_batch_options(parser: argparse.ArgumentParser):
     )
     group.add_argument(
         "--mask-threshold",
-        type=float,
+        type=_threshold_float,
         default=0.5,
         help="Fraction of sampled images that must agree for a pixel to be "
         "in the shared mask (default: 0.5 = detected in >=50%% of samples).",
@@ -240,6 +257,8 @@ def _build_detector_kwargs(args) -> dict:
 
     elif detector == "yolo11x":
         kwargs["confidence"] = args.confidence
+        if args.dilate is not None:
+            kwargs["padding"] = args.dilate
         if args.device:
             kwargs["device"] = args.device
 
@@ -275,9 +294,7 @@ def _build_inpainter_kwargs(args) -> dict:
 def _cmd_run(args):
     """Execute the 'run' command."""
     input_path = Path(args.input)
-    if not input_path.exists():
-        print(f"Error: Input not found: {input_path}", file=sys.stderr)
-        sys.exit(1)
+    _require_exists(input_path)
 
     detector_kwargs = _build_detector_kwargs(args)
     inpainter_kwargs = _build_inpainter_kwargs(args)
@@ -289,14 +306,14 @@ def _cmd_run(args):
         from kiero.inpainters import get_inpainter
 
         # Default output path for batch
-        output_path = args.output
-        if output_path is None:
-            if input_path.is_dir():
-                output_path = str(input_path) + "_clean"
-            else:  # CBZ
-                output_path = (
-                    input_path.parent / f"{input_path.stem}_clean{input_path.suffix}"
-                )
+        if args.output is not None:
+            output_path = Path(args.output)
+        elif input_path.is_dir():
+            output_path = input_path.parent / f"{input_path.name}_clean"
+        else:  # CBZ
+            output_path = (
+                input_path.parent / f"{input_path.stem}_clean{input_path.suffix}"
+            )
 
         print(f"Input: {input_path}")
         print(f"Detector: {args.detector}")
@@ -312,7 +329,7 @@ def _cmd_run(args):
 
         run_batch(
             input_path=input_path,
-            output_path=Path(output_path),
+            output_path=output_path,
             detector=detector,
             inpainter=inpainter,
             per_image=args.per_image,
@@ -327,8 +344,9 @@ def _cmd_run(args):
     # --- Single image mode ---
     from kiero.pipeline import Pipeline
 
-    output_path = args.output
-    if output_path is None:
+    if args.output is not None:
+        output_path = Path(args.output)
+    else:
         output_path = input_path.parent / f"{input_path.stem}_clean{input_path.suffix}"
 
     print(f"Input: {input_path}")
@@ -349,9 +367,7 @@ def _cmd_run(args):
 def _cmd_detect(args):
     """Execute the 'detect' command."""
     input_path = Path(args.input)
-    if not input_path.exists():
-        print(f"Error: Input not found: {input_path}", file=sys.stderr)
-        sys.exit(1)
+    _require_exists(input_path)
 
     detector_kwargs = _build_detector_kwargs(args)
 
@@ -360,7 +376,6 @@ def _cmd_detect(args):
         from kiero.batch import resolve_inputs, collect_shared_mask
         from kiero.detectors import get_detector
         from kiero.utils import save_image
-        import shutil
 
         print(f"Input: {input_path}")
         print(f"Detector: {args.detector}")
@@ -396,7 +411,7 @@ def _cmd_detect(args):
 
     pipeline = Pipeline(
         detector=args.detector,
-        inpainter="opencv",  # dummy, won't be used
+        inpainter=None,
         detector_kwargs=detector_kwargs,
     )
 
@@ -413,12 +428,8 @@ def _cmd_inpaint(args):
     input_path = Path(args.input)
     mask_path = Path(args.mask)
 
-    if not input_path.exists():
-        print(f"Error: Input file not found: {input_path}", file=sys.stderr)
-        sys.exit(1)
-    if not mask_path.exists():
-        print(f"Error: Mask file not found: {mask_path}", file=sys.stderr)
-        sys.exit(1)
+    _require_exists(input_path, "Input file")
+    _require_exists(mask_path, "Mask file")
 
     print(f"Input: {input_path}")
     print(f"Mask: {mask_path}")
@@ -429,8 +440,6 @@ def _cmd_inpaint(args):
 
     image = load_image(input_path)
     mask = load_mask(mask_path)
-
-    import time
 
     t0 = time.time()
     result = inpainter.inpaint(image, mask)
@@ -446,9 +455,7 @@ def _cmd_compare(args):
     from kiero.pipeline import compare
 
     input_path = Path(args.input)
-    if not input_path.exists():
-        print(f"Error: Input file not found: {input_path}", file=sys.stderr)
-        sys.exit(1)
+    _require_exists(input_path, "Input file")
 
     print(f"Input: {input_path}")
     print(f"Inpainter: {args.inpainter}")
