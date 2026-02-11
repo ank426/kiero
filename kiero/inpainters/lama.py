@@ -63,9 +63,11 @@ class LamaInpainter(Inpainter):
         """
         import cv2
         from PIL import Image
+        from kiero.utils import conform_mask
 
         self._load_model()
 
+        mask = conform_mask(mask, image)
         h, w = image.shape[:2]
         needs_resize = max(h, w) > self._max_dim
 

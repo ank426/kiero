@@ -58,6 +58,31 @@ def load_mask(path: str | Path) -> np.ndarray:
     return mask
 
 
+def conform_mask(mask: np.ndarray, image: np.ndarray) -> np.ndarray:
+    """Ensure a mask has the same spatial dimensions as an image.
+
+    If the mask already matches, it is returned as-is (no copy). If dimensions
+    differ, the mask is resized to match the image using nearest-neighbor
+    interpolation (to keep it binary) and a warning is printed.
+
+    Args:
+        mask: Binary mask, shape (H_m, W_m), dtype uint8.
+        image: Target image, shape (H, W, 3), dtype uint8.
+
+    Returns:
+        Mask with shape (H, W), dtype uint8.
+    """
+    img_h, img_w = image.shape[:2]
+    mask_h, mask_w = mask.shape[:2]
+    if (mask_h, mask_w) == (img_h, img_w):
+        return mask
+    print(
+        f"  Warning: mask size ({mask_w}x{mask_h}) differs from image "
+        f"({img_w}x{img_h}), resizing mask to match."
+    )
+    return cv2.resize(mask, (img_w, img_h), interpolation=cv2.INTER_NEAREST)
+
+
 def overlay_mask(
     image: np.ndarray, mask: np.ndarray, color=(0, 0, 255), alpha=0.4
 ) -> np.ndarray:
@@ -74,6 +99,7 @@ def overlay_mask(
     Returns:
         Visualization image with mask overlay.
     """
+    mask = conform_mask(mask, image)
     vis = image.copy()
     mask_bool = mask > 127
     overlay = np.full_like(image, color, dtype=np.uint8)

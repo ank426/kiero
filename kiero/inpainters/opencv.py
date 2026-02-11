@@ -37,5 +37,8 @@ class OpenCVInpainter(Inpainter):
 
     def inpaint(self, image: np.ndarray, mask: np.ndarray) -> np.ndarray:
         """Inpaint using OpenCV classical methods."""
+        from kiero.utils import conform_mask
+
+        mask = conform_mask(mask, image)
         flag = cv2.INPAINT_TELEA if self._method == "telea" else cv2.INPAINT_NS
         return cv2.inpaint(image, mask, self._radius, flag)
