@@ -20,6 +20,13 @@ class Pipeline:
         print(f"  Detection done in {elapsed:.1f}s — {mask_stats(mask)[2]:.1f}% masked")
         return mask, elapsed
 
+    def _inpaint(self, image: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, float]:
+        t0 = time.time()
+        result = self._inpainter.inpaint(image, mask)
+        elapsed = time.time() - t0
+        print(f"  Inpainting done in {elapsed:.1f}s")
+        return result, elapsed
+
     def detect(self, image_path: str | Path, output_path: str | Path) -> np.ndarray:
         mask, _ = self._detect(load_image(image_path))
         save_image(mask, output_path)
@@ -27,10 +34,7 @@ class Pipeline:
         return mask
 
     def inpaint(self, image_path: str | Path, mask_path: str | Path, output_path: str | Path) -> np.ndarray:
-        image, mask = load_image(image_path), load_mask(mask_path)
-        t0 = time.time()
-        result = self._inpainter.inpaint(image, mask)
-        print(f"  Inpainting done in {time.time() - t0:.1f}s")
+        result, _ = self._inpaint(load_image(image_path), load_mask(mask_path))
         save_image(result, output_path)
         print(f"  Result saved to {output_path}")
         return result
@@ -45,10 +49,7 @@ class Pipeline:
             print("  No watermark detected, skipping inpainting.")
             save_image(image, output_path)
             return image
-        t0 = time.time()
-        result = self._inpainter.inpaint(image, mask)
-        inp_time = time.time() - t0
-        print(f"  Inpainting done in {inp_time:.1f}s")
+        result, inp_time = self._inpaint(image, mask)
         print(f"  Total: {det_time + inp_time:.1f}s")
         save_image(result, output_path)
         print(f"  Result saved to {output_path}")
