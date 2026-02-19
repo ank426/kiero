@@ -105,14 +105,12 @@ def main():
     p_inp = sub.add_parser(
         "inpaint",
         help="Inpaint with a provided mask.",
-        usage="%(prog)s [OPTIONS] -m mask input output",
+        usage="%(prog)s [OPTIONS] -m MASK input output",
         formatter_class=_formatter,
     )
     p_inp.add_argument("input", help="Image, directory, or .cbz file.")
     p_inp.add_argument("output", help="Result output path.")
-    p_inp.add_argument(
-        "-m", "--mask", required=True, metavar="mask", help="Binary mask image."
-    )
+    p_inp.add_argument("-m", "--mask", required=True, help="Binary mask image.")
     p_inp.add_argument("--device", default=None, help="Device (default: auto).")
 
     args = parser.parse_args()
