@@ -11,7 +11,6 @@ dependencies = [
     "torch",
     "torchvision",
     "ultralytics",
-    "transformers",
     "simple-lama-inpainting",
 ]
 

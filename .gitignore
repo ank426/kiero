@@ -15,6 +15,9 @@ imgs/
 output/
 *.png
 
+# Linter cache
+.ruff_cache/
+
 # Model cache
 *.pt
 *.onnx

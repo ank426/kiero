@@ -1,32 +1,25 @@
-"""Base class for inpainters."""
-
 from abc import ABC, abstractmethod
 
+import cv2
 import numpy as np
 
 
 class Inpainter(ABC):
-    """Abstract base class for inpainters.
-
-    All inpainters must implement the `inpaint` method, which takes an image
-    and a binary mask, and returns a clean image with the masked regions filled.
-    """
-
-    @property
     @abstractmethod
-    def name(self) -> str:
-        """Human-readable name for this inpainter."""
-        ...
+    def _inpaint(self, image: np.ndarray, mask: np.ndarray) -> np.ndarray: ...
 
-    @abstractmethod
     def inpaint(self, image: np.ndarray, mask: np.ndarray) -> np.ndarray:
-        """Inpaint masked regions of an image.
+        mask = self._conform_mask(mask, image)
+        return self._inpaint(image, mask)
 
-        Args:
-            image: Input image, shape (H, W, 3), dtype uint8, BGR format.
-            mask: Binary mask, shape (H, W), dtype uint8, 255 = region to inpaint.
-
-        Returns:
-            Inpainted image, shape (H, W, 3), dtype uint8, BGR format.
-        """
-        ...
+    @staticmethod
+    def _conform_mask(mask: np.ndarray, image: np.ndarray) -> np.ndarray:
+        img_h, img_w = image.shape[:2]
+        mask_h, mask_w = mask.shape[:2]
+        if (mask_h, mask_w) == (img_h, img_w):
+            return mask
+        print(
+            f"  Warning: mask size ({mask_w}x{mask_h}) differs from image "
+            f"({img_w}x{img_h}), resizing mask to match."
+        )
+        return cv2.resize(mask, (img_w, img_h), interpolation=cv2.INTER_NEAREST)
