@@ -13,6 +13,9 @@ dependencies = [
     "simple-lama-inpainting",
 ]
 
+[tool.ruff]
+line-length = 120
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

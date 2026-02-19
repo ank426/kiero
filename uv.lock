@@ -272,7 +272,6 @@ dependencies = [
     { name = "pillow" },
     { name = "simple-lama-inpainting" },
     { name = "torch" },
-    { name = "torchvision" },
     { name = "ultralytics" },
 ]
 
@@ -283,7 +282,6 @@ requires-dist = [
     { name = "pillow" },
     { name = "simple-lama-inpainting" },
     { name = "torch" },
-    { name = "torchvision" },
     { name = "ultralytics" },
 ]
 

@@ -8,8 +8,7 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
 
 
 def mask_stats(mask: np.ndarray) -> tuple[int, int, float]:
-    n_masked = int(np.count_nonzero(mask))
-    total = mask.shape[0] * mask.shape[1]
+    n_masked, total = int(np.count_nonzero(mask)), mask.shape[0] * mask.shape[1]
     return n_masked, total, (n_masked / total * 100 if total > 0 else 0.0)
 
 
@@ -18,26 +17,20 @@ def bgr_to_pil(image: np.ndarray) -> Image.Image:
 
 
 def list_images(directory: str | Path) -> list[Path]:
-    directory = Path(directory)
-    if not directory.is_dir():
-        raise NotADirectoryError(f"Not a directory: {directory}")
+    d = Path(directory)
+    if not d.is_dir():
+        raise NotADirectoryError(f"Not a directory: {d}")
     return sorted(
-        (
-            p
-            for p in directory.iterdir()
-            if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
-        ),
-        key=lambda p: p.name,
+        (p for p in d.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS), key=lambda p: p.name
     )
 
 
 def _read(path: str | Path, flags: int, label: str) -> np.ndarray:
-    path = Path(path)
-    if not path.exists():
-        raise FileNotFoundError(f"{label} not found: {path}")
-    data = cv2.imread(str(path), flags)
-    if data is None:
-        raise ValueError(f"Could not read {label.lower()}: {path}")
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"{label} not found: {p}")
+    if (data := cv2.imread(str(p), flags)) is None:
+        raise ValueError(f"Could not read {label.lower()}: {p}")
     return data
 
 
@@ -50,7 +43,7 @@ def load_mask(path: str | Path) -> np.ndarray:
 
 
 def save_image(image: np.ndarray, path: str | Path) -> None:
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if not cv2.imwrite(str(path), image):
-        raise IOError(f"Failed to write image: {path}")
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    if not cv2.imwrite(str(p), image):
+        raise IOError(f"Failed to write image: {p}")
