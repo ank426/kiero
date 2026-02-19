@@ -124,18 +124,14 @@ def _validate_shapes(
     images: list[np.ndarray], ref_shape: tuple[int, int] | None
 ) -> tuple[int, int]:
     shapes = {img.shape[:2] for img in images}
+    if ref_shape is not None:
+        shapes.add(ref_shape)
     if len(shapes) > 1:
         raise ValueError(
-            f"Cannot compute shared mask: images have different "
-            f"dimensions: {shapes}. Use --per-image mode instead."
+            f"Cannot compute shared mask: mixed dimensions {shapes}. "
+            f"Use --per-image mode instead."
         )
-    shape = next(iter(shapes))
-    if ref_shape is not None and shape != ref_shape:
-        raise ValueError(
-            f"Cannot compute shared mask: images have different "
-            f"dimensions: {ref_shape} vs {shape}. Use --per-image mode instead."
-        )
-    return shape
+    return next(iter(shapes))
 
 
 def collect_shared_mask(
@@ -189,6 +185,47 @@ def collect_shared_mask(
     return shared_mask
 
 
+def detect_batch(
+    input_path: Path,
+    output_path: Path,
+    detector: WatermarkDetector,
+    sample_n: int | None = None,
+    confidence: float = 0.25,
+    memory_mb: int = _DEFAULT_MEMORY_MB,
+) -> None:
+    image_paths, source_type, temp_dir = resolve_inputs(input_path)
+    print(f"  Source: {source_type} ({len(image_paths)} images)")
+
+    try:
+        sample_str = str(sample_n) if sample_n else "all"
+        print(f"  Sample: {sample_str}, confidence: {confidence}")
+
+        mask = collect_shared_mask(
+            image_paths,
+            detector,
+            sample_n=sample_n,
+            confidence=confidence,
+            memory_mb=memory_mb,
+        )
+        save_image(mask, output_path)
+        print(f"Shared mask saved to {output_path}")
+    finally:
+        if temp_dir is not None:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@contextmanager
+def _timed_batch(input_path: Path, output_path: Path):
+    t0 = time.time()
+    with _batch_io(input_path, output_path) as (image_paths, source_type, out_dir):
+        yield image_paths, source_type, out_dir
+        n = len(image_paths)
+        elapsed = time.time() - t0
+        print(
+            f"\n  Batch complete: {n} images in {elapsed:.1f}s ({elapsed / n:.1f}s/image avg)"
+        )
+
+
 def run_batch(
     input_path: Path,
     output_path: Path,
@@ -200,37 +237,10 @@ def run_batch(
     memory_mb: int = _DEFAULT_MEMORY_MB,
     mask_output: Path | None = None,
 ) -> None:
-    total_t0 = time.time()
-
-    with _batch_io(input_path, output_path) as (image_paths, _source_type, out_dir):
+    with _timed_batch(input_path, output_path) as (image_paths, _, out_dir):
         n = len(image_paths)
 
-        if not per_image:
-            shared_mask = collect_shared_mask(
-                image_paths,
-                detector,
-                sample_n=sample_n,
-                confidence=confidence,
-                memory_mb=memory_mb,
-            )
-            if mask_output:
-                save_image(shared_mask, mask_output)
-                print(f"  Shared mask saved to {mask_output}")
-
-            n_masked, _, _ = mask_stats(shared_mask)
-            if n_masked == 0:
-                print("  No watermark detected in shared mask. Copying originals.")
-                for i, p in enumerate(image_paths):
-                    shutil.copy2(p, out_dir / p.name)
-                    print(f"  [{i + 1}/{n}] {p.name} (copied)")
-            else:
-                print(f"\n  Inpainting {n} images with shared mask...")
-                _process_images(
-                    image_paths,
-                    out_dir,
-                    lambda img: (inpainter.inpaint(img, shared_mask), ""),
-                )
-        else:
+        if per_image:
             print("\n  Per-image mode: detecting and inpainting each image...")
 
             def _detect_and_inpaint(image: np.ndarray) -> tuple[np.ndarray, str]:
@@ -240,12 +250,31 @@ def run_batch(
                 return result, f"{pct:.1f}% masked"
 
             _process_images(image_paths, out_dir, _detect_and_inpaint)
+            return
 
-        total_elapsed = time.time() - total_t0
-        print(
-            f"\n  Batch complete: {n} images in {total_elapsed:.1f}s "
-            f"({total_elapsed / n:.1f}s/image avg)"
+        shared_mask = collect_shared_mask(
+            image_paths,
+            detector,
+            sample_n=sample_n,
+            confidence=confidence,
+            memory_mb=memory_mb,
         )
+        if mask_output:
+            save_image(shared_mask, mask_output)
+            print(f"  Shared mask saved to {mask_output}")
+
+        if mask_stats(shared_mask)[0] == 0:
+            print("  No watermark detected in shared mask. Copying originals.")
+            for i, p in enumerate(image_paths):
+                shutil.copy2(p, out_dir / p.name)
+                print(f"  [{i + 1}/{n}] {p.name} (copied)")
+        else:
+            print(f"\n  Inpainting {n} images with shared mask...")
+            _process_images(
+                image_paths,
+                out_dir,
+                lambda img: (inpainter.inpaint(img, shared_mask), ""),
+            )
 
 
 def inpaint_batch(
@@ -254,24 +283,15 @@ def inpaint_batch(
     mask: np.ndarray,
     inpainter: Inpainter,
 ) -> None:
-    total_t0 = time.time()
-
-    n_masked, _, _ = mask_stats(mask)
+    n_masked = mask_stats(mask)[0]
     if n_masked == 0:
         print("  Mask is empty — nothing to inpaint.")
 
-    with _batch_io(input_path, output_path) as (image_paths, _source_type, out_dir):
-        n = len(image_paths)
-
-        def _apply_mask(image: np.ndarray) -> tuple[np.ndarray, str]:
-            if n_masked > 0:
-                return inpainter.inpaint(image, mask), ""
-            return image, ""
-
-        _process_images(image_paths, out_dir, _apply_mask)
-
-        total_elapsed = time.time() - total_t0
-        print(
-            f"\n  Batch complete: {n} images in {total_elapsed:.1f}s "
-            f"({total_elapsed / n:.1f}s/image avg)"
+    with _timed_batch(input_path, output_path) as (image_paths, _, out_dir):
+        _process_images(
+            image_paths,
+            out_dir,
+            lambda img: (
+                (inpainter.inpaint(img, mask), "") if n_masked > 0 else (img, "")
+            ),
         )

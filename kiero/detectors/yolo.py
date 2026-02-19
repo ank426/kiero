@@ -1,5 +1,3 @@
-"""YOLO11x watermark detector using ``corzent/yolo11x_watermark_detection``."""
-
 import numpy as np
 
 from kiero.detectors.base import WatermarkDetector
@@ -28,7 +26,16 @@ class YoloDetector(WatermarkDetector):
         model_path = hf_hub_download(repo_id=_MODEL_REPO, filename="best.pt")
         self._model = YOLO(model_path)
 
-    def _results_to_mask(self, result, h: int, w: int) -> np.ndarray:
+    def _run(self, source):
+        self._load_model()
+        return self._model(
+            source,
+            conf=self._confidence,
+            device=self._device,
+            verbose=False,
+        )
+
+    def _to_mask(self, result, h: int, w: int) -> np.ndarray:
         mask = np.zeros((h, w), dtype=np.uint8)
         if result.boxes is None:
             return mask
@@ -42,28 +49,13 @@ class YoloDetector(WatermarkDetector):
         return mask
 
     def detect(self, image: np.ndarray) -> np.ndarray:
-        self._load_model()
         h, w = image.shape[:2]
-        results = self._model(
-            image,
-            conf=self._confidence,
-            device=self._device,
-            verbose=False,
-        )
-        return self._results_to_mask(results[0], h, w)
+        return self._to_mask(self._run(image)[0], h, w)
 
     def detect_batch(self, images: list[np.ndarray]) -> list[np.ndarray]:
         if not images:
             return []
-
-        self._load_model()
-        results = self._model(
-            images,
-            conf=self._confidence,
-            device=self._device,
-            verbose=False,
-        )
         return [
-            self._results_to_mask(result, img.shape[0], img.shape[1])
-            for img, result in zip(images, results)
+            self._to_mask(r, img.shape[0], img.shape[1])
+            for img, r in zip(images, self._run(images))
         ]

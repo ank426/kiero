@@ -26,7 +26,16 @@ def _require_exists(path: Path, label: str = "Input") -> None:
         sys.exit(1)
 
 
-def _add_common_options(parser: argparse.ArgumentParser) -> None:
+def _subparser(sub, name: str, *, help: str, usage: str) -> argparse.ArgumentParser:
+    p = sub.add_parser(name, help=help, usage=usage, formatter_class=_Formatter)
+    p.add_argument("input", help="Image, directory, or .cbz file.")
+    p.add_argument("output", help="Output path.")
+    p._positionals.title = "Arguments"
+    p._optionals.title = "Options"
+    return p
+
+
+def _add_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--confidence",
         type=float,
@@ -44,9 +53,6 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Device: 'cuda', 'cpu', or auto (default: auto).",
     )
-
-
-def _add_batch_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--per-image",
         action="store_true",
@@ -68,66 +74,6 @@ def _add_batch_options(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        prog="kiero",
-        description="Manga watermark detector and remover.",
-        formatter_class=_Formatter,
-    )
-    sub = parser.add_subparsers(dest="command", required=True)
-
-    p_run = sub.add_parser(
-        "run",
-        help="Detect and inpaint (full pipeline).",
-        usage="%(prog)s [OPTIONS] input output",
-        formatter_class=_Formatter,
-    )
-    p_run.add_argument("input", help="Image, directory, or .cbz file.")
-    p_run.add_argument("output", help="Output path.")
-    p_run.add_argument("--mask-output", help="Save detection mask here.")
-    _add_common_options(p_run)
-    _add_batch_options(p_run)
-    p_run._positionals.title = "Arguments"
-    p_run._optionals.title = "Options"
-
-    p_det = sub.add_parser(
-        "detect",
-        help="Detect watermarks, save mask only.",
-        usage="%(prog)s [OPTIONS] input output",
-        formatter_class=_Formatter,
-    )
-    p_det.add_argument("input", help="Image, directory, or .cbz file.")
-    p_det.add_argument("output", help="Mask output path.")
-    _add_common_options(p_det)
-    _add_batch_options(p_det)
-    p_det._positionals.title = "Arguments"
-    p_det._optionals.title = "Options"
-
-    p_inp = sub.add_parser(
-        "inpaint",
-        help="Inpaint with a provided mask.",
-        usage="%(prog)s [OPTIONS] -m MASK input output",
-        formatter_class=_Formatter,
-    )
-    p_inp.add_argument("input", help="Image, directory, or .cbz file.")
-    p_inp.add_argument("output", help="Result output path.")
-    p_inp.add_argument("-m", "--mask", required=True, help="Binary mask image.")
-    p_inp.add_argument(
-        "--device", default=None, help="Device: 'cuda', 'cpu', or auto (default: auto)."
-    )
-    p_inp._positionals.title = "Arguments"
-    p_inp._optionals.title = "Options"
-
-    args = parser.parse_args()
-
-    if args.command == "run":
-        _cmd_run(args)
-    elif args.command == "detect":
-        _cmd_detect(args)
-    elif args.command == "inpaint":
-        _cmd_inpaint(args)
-
-
 def _make_detector(args):
     from kiero.detectors.yolo import YoloDetector
 
@@ -142,6 +88,50 @@ def _make_inpainter(args):
     from kiero.inpainters.lama import LamaInpainter
 
     return LamaInpainter(device=args.device)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="kiero",
+        description="Manga watermark detector and remover.",
+        formatter_class=_Formatter,
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_run = _subparser(
+        sub,
+        "run",
+        help="Detect and inpaint (full pipeline).",
+        usage="%(prog)s [OPTIONS] input output",
+    )
+    p_run.add_argument("--mask-output", help="Save detection mask here.")
+    _add_options(p_run)
+
+    p_det = _subparser(
+        sub,
+        "detect",
+        help="Detect watermarks, save mask only.",
+        usage="%(prog)s [OPTIONS] input output",
+    )
+    _add_options(p_det)
+
+    p_inp = _subparser(
+        sub,
+        "inpaint",
+        help="Inpaint with a provided mask.",
+        usage="%(prog)s [OPTIONS] -m MASK input output",
+    )
+    p_inp.add_argument("-m", "--mask", required=True, help="Binary mask image.")
+    p_inp.add_argument(
+        "--device",
+        default=None,
+        help="Device: 'cuda', 'cpu', or auto (default: auto).",
+    )
+
+    args = parser.parse_args()
+    {"run": _cmd_run, "detect": _cmd_detect, "inpaint": _cmd_inpaint}[args.command](
+        args
+    )
 
 
 def _cmd_run(args):
@@ -174,12 +164,11 @@ def _cmd_run(args):
     else:
         from kiero.pipeline import Pipeline
 
-        pipeline = Pipeline(
+        Pipeline(
             confidence=args.confidence,
             padding=args.padding,
             device=args.device,
-        )
-        pipeline.run(input_path, output_path, mask_path=args.mask_output)
+        ).run(input_path, output_path, mask_path=args.mask_output)
 
     print("Done.")
 
@@ -187,49 +176,36 @@ def _cmd_run(args):
 def _cmd_detect(args):
     input_path = Path(args.input)
     _require_exists(input_path)
+    output_path = Path(args.output)
 
-    print(f"Input: {input_path}")
+    print(f"Input:  {input_path}")
+    print(f"Output: {output_path}")
 
     if _is_batch(input_path):
-        import shutil
-        from kiero.batch import resolve_inputs, collect_shared_mask
-        from kiero.utils import save_image
+        from kiero.batch import detect_batch
 
-        image_paths, source_type, temp_dir = resolve_inputs(input_path)
-        print(f"  Source: {source_type} ({len(image_paths)} images)")
-
-        try:
-            sample_str = str(args.sample) if args.sample else "all"
-            print(f"  Sample: {sample_str}, confidence: {args.confidence}")
-
-            mask = collect_shared_mask(
-                image_paths,
-                _make_detector(args),
-                sample_n=args.sample,
-                confidence=args.confidence,
-                memory_mb=args.memory,
-            )
-            save_image(mask, args.output)
-            print(f"Shared mask saved to {args.output}")
-        finally:
-            if temp_dir is not None:
-                shutil.rmtree(temp_dir, ignore_errors=True)
+        detect_batch(
+            input_path=input_path,
+            output_path=output_path,
+            detector=_make_detector(args),
+            sample_n=args.sample,
+            confidence=args.confidence,
+            memory_mb=args.memory,
+        )
     else:
         from kiero.pipeline import Pipeline
         from kiero.utils import save_image
 
-        pipeline = Pipeline(
+        mask = Pipeline(
             confidence=args.confidence,
             padding=args.padding,
             device=args.device,
-        )
-        mask = pipeline.detect(input_path)
-        save_image(mask, args.output)
-        print(f"Mask saved to {args.output}")
+        ).detect(input_path)
+        save_image(mask, output_path)
+        print(f"Mask saved to {output_path}")
 
 
 def _cmd_inpaint(args):
-    from kiero.inpainters.lama import LamaInpainter
     from kiero.utils import load_image, load_mask, save_image
 
     input_path = Path(args.input)
@@ -241,7 +217,7 @@ def _cmd_inpaint(args):
     print(f"Input: {input_path}")
     print(f"Mask:  {mask_path}")
 
-    inpainter = LamaInpainter(device=args.device)
+    inpainter = _make_inpainter(args)
     mask = load_mask(mask_path)
 
     if _is_batch(input_path):
@@ -256,12 +232,9 @@ def _cmd_inpaint(args):
         )
     else:
         image = load_image(input_path)
-
         t0 = time.time()
         result = inpainter.inpaint(image, mask)
-        elapsed = time.time() - t0
-        print(f"  Inpainting done in {elapsed:.1f}s")
-
+        print(f"  Inpainting done in {time.time() - t0:.1f}s")
         save_image(result, args.output)
         print(f"Result saved to {args.output}")
 

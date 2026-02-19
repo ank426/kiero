@@ -1,5 +1,3 @@
-"""LaMa inpainter — downscales images >2048px, composites back at full res."""
-
 import cv2
 import numpy as np
 from PIL import Image
