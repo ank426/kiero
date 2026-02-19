@@ -23,7 +23,7 @@ def resolve_inputs(input_path: Path) -> tuple[list[Path], str, Path | None]:
         if not (images := list_images(input_path)):
             raise FileNotFoundError(f"No image files found in {input_path}")
         return images, "directory", None
-    if input_path.suffix.lower() == ".cbz":
+    if input_path.suffix.lower() in {".cbz", ".zip"}:
         return _extract_cbz(input_path)
     if not input_path.is_file():
         raise FileNotFoundError(f"Input not found: {input_path}")

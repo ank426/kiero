@@ -20,7 +20,7 @@ class _Formatter(argparse.HelpFormatter):
 
 
 def _is_batch(path: Path) -> bool:
-    return path.is_dir() or path.suffix.lower() == ".cbz"
+    return path.is_dir() or path.suffix.lower() in {".cbz", ".zip"}
 
 
 def _require_exists(path: Path, label: str = "Input") -> None:
