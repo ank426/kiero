@@ -15,34 +15,31 @@ def bgr_to_pil(image: np.ndarray) -> Image.Image:
     return Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
 
-def list_images(directory: str | Path) -> list[Path]:
-    d = Path(directory)
-    if not d.is_dir():
-        raise NotADirectoryError(f"Not a directory: {d}")
+def list_images(directory: Path) -> list[Path]:
+    if not directory.is_dir():
+        raise NotADirectoryError(f"Not a directory: {directory}")
     return sorted(
-        (p for p in d.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS), key=lambda p: p.name
+        (p for p in directory.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS), key=lambda p: p.name
     )
 
 
-def _read(path: str | Path, flags: int, label: str) -> np.ndarray:
-    p = Path(path)
-    if not p.exists():
-        raise FileNotFoundError(f"{label} not found: {p}")
-    if (data := cv2.imread(str(p), flags)) is None:
-        raise ValueError(f"Could not read {label.lower()}: {p}")
+def _read(path: Path, flags: int, label: str) -> np.ndarray:
+    if not path.exists():
+        raise FileNotFoundError(f"{label} not found: {path}")
+    if (data := cv2.imread(str(path), flags)) is None:
+        raise ValueError(f"Could not read {label.lower()}: {path}")
     return data
 
 
-def load_image(path: str | Path) -> np.ndarray:
+def load_image(path: Path) -> np.ndarray:
     return _read(path, cv2.IMREAD_COLOR, "Image")
 
 
-def load_mask(path: str | Path) -> np.ndarray:
+def load_mask(path: Path) -> np.ndarray:
     return _read(path, cv2.IMREAD_GRAYSCALE, "Mask")
 
 
-def save_image(image: np.ndarray, path: str | Path) -> None:
-    p = Path(path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    if not cv2.imwrite(str(p), image):
-        raise IOError(f"Failed to write image: {p}")
+def save_image(image: np.ndarray, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not cv2.imwrite(str(path), image):
+        raise IOError(f"Failed to write image: {path}")

@@ -27,19 +27,19 @@ class Pipeline:
         print(f"  Inpainting done in {elapsed:.1f}s")
         return result, elapsed
 
-    def detect(self, image_path: str | Path, output_path: str | Path) -> np.ndarray:
+    def detect(self, image_path: Path, output_path: Path) -> np.ndarray:
         mask, _ = self._detect(load_image(image_path))
         save_image(mask, output_path)
         print(f"  Mask saved to {output_path}")
         return mask
 
-    def inpaint(self, image_path: str | Path, mask_path: str | Path, output_path: str | Path) -> np.ndarray:
+    def inpaint(self, image_path: Path, mask_path: Path, output_path: Path) -> np.ndarray:
         result, _ = self._inpaint(load_image(image_path), load_mask(mask_path))
         save_image(result, output_path)
         print(f"  Result saved to {output_path}")
         return result
 
-    def run(self, image_path: str | Path, output_path: str | Path, mask_path: str | Path | None = None) -> np.ndarray:
+    def run(self, image_path: Path, output_path: Path, mask_path: Path | None = None) -> np.ndarray:
         image = load_image(image_path)
         mask, det_time = self._detect(image)
         if mask_path:
