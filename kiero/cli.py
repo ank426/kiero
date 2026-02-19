@@ -41,20 +41,19 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_batch_options(parser: argparse.ArgumentParser) -> None:
-    group = parser.add_argument_group("batch options")
-    group.add_argument(
+    parser.add_argument(
         "--per-image",
         action="store_true",
         help="Detect independently per image instead of shared mask.",
     )
-    group.add_argument(
+    parser.add_argument(
         "--sample",
         type=int,
         default=None,
         metavar="N",
         help="Sample N images for mask averaging (default: all).",
     )
-    group.add_argument(
+    parser.add_argument(
         "--memory",
         type=int,
         default=1024,
