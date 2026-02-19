@@ -1,7 +1,6 @@
 import argparse
 import shutil
 import sys
-import time
 from pathlib import Path
 
 
@@ -70,7 +69,9 @@ def _make_inpainter(args):
 def _make_pipeline(args):
     from kiero.pipeline import Pipeline
 
-    return Pipeline(confidence=args.confidence, padding=args.padding, device=args.device)
+    return Pipeline(
+        confidence=getattr(args, "confidence", 0.25), padding=getattr(args, "padding", 10), device=args.device
+    )
 
 
 def main():
@@ -143,32 +144,26 @@ def _cmd_detect(args):
             memory_mb=args.memory,
         )
     else:
-        from kiero.utils import save_image
-
-        save_image(_make_pipeline(args).detect(inp), out)
-        print(f"Mask saved to {out}")
+        _make_pipeline(args).detect(inp, out)
+    print("Done.")
 
 
 def _cmd_inpaint(args):
-    from kiero.utils import load_image, load_mask, save_image
-
     inp, mask_path = Path(args.input), Path(args.mask)
     _require_exists(inp, "Input")
     _require_exists(mask_path, "Mask file")
     print(f"Input: {inp}\nMask:  {mask_path}")
 
-    inpainter, mask = _make_inpainter(args), load_mask(mask_path)
     if _is_batch(inp):
         from kiero.batch import inpaint_batch
+        from kiero.utils import load_mask
 
         print(f"Output: {args.output}")
-        inpaint_batch(input_path=inp, output_path=Path(args.output), mask=mask, inpainter=inpainter)
+        inpaint_batch(
+            input_path=inp, output_path=Path(args.output), mask=load_mask(mask_path), inpainter=_make_inpainter(args)
+        )
     else:
-        t0 = time.time()
-        result = inpainter.inpaint(load_image(inp), mask)
-        print(f"  Inpainting done in {time.time() - t0:.1f}s")
-        save_image(result, args.output)
-        print(f"Result saved to {args.output}")
+        _make_pipeline(args).inpaint(inp, mask_path, Path(args.output))
     print("Done.")
 
 

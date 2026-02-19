@@ -5,7 +5,7 @@ import numpy as np
 
 from kiero.detectors.yolo import YoloDetector
 from kiero.inpainters.lama import LamaInpainter
-from kiero.utils import load_image, mask_stats, save_image
+from kiero.utils import load_image, load_mask, mask_stats, save_image
 
 
 class Pipeline:
@@ -20,8 +20,20 @@ class Pipeline:
         print(f"  Detection done in {elapsed:.1f}s — {mask_stats(mask)[2]:.1f}% masked")
         return mask, elapsed
 
-    def detect(self, image_path: str | Path) -> np.ndarray:
-        return self._detect(load_image(image_path))[0]
+    def detect(self, image_path: str | Path, output_path: str | Path) -> np.ndarray:
+        mask, _ = self._detect(load_image(image_path))
+        save_image(mask, output_path)
+        print(f"  Mask saved to {output_path}")
+        return mask
+
+    def inpaint(self, image_path: str | Path, mask_path: str | Path, output_path: str | Path) -> np.ndarray:
+        image, mask = load_image(image_path), load_mask(mask_path)
+        t0 = time.time()
+        result = self._inpainter.inpaint(image, mask)
+        print(f"  Inpainting done in {time.time() - t0:.1f}s")
+        save_image(result, output_path)
+        print(f"  Result saved to {output_path}")
+        return result
 
     def run(self, image_path: str | Path, output_path: str | Path, mask_path: str | Path | None = None) -> np.ndarray:
         image = load_image(image_path)
