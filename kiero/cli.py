@@ -149,24 +149,23 @@ def _cmd_detect(args):
 
 
 def _cmd_inpaint(args):
-    inp, mask_path = Path(args.input), Path(args.mask)
+    inp, out, mask_path = Path(args.input), Path(args.output), Path(args.mask)
     _require_exists(inp, "Input")
     _require_exists(mask_path, "Mask file")
-    print(f"Input: {inp}\nMask:  {mask_path}")
+    print(f"Input: {inp}\nMask:  {mask_path}\nOutput: {out}")
 
     if _is_batch(inp):
         from kiero.batch import inpaint_batch
         from kiero.utils import load_mask
 
-        print(f"Output: {args.output}")
         inpaint_batch(
             input_path=inp,
-            output_path=Path(args.output),
+            output_path=out,
             mask=load_mask(mask_path),
             inpainter=_make_inpainter(args),
         )
     else:
-        _make_pipeline(args).inpaint(inp, mask_path, Path(args.output))
+        _make_pipeline(args).inpaint(inp, mask_path, out)
     print("Done.")
 
 
