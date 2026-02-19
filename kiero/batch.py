@@ -16,6 +16,9 @@ from kiero.utils import load_image, mask_ratio, save_image
 _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
 
 
+# --- I/O: input resolution, cbz handling, batch context managers ---
+
+
 def _list_images(directory: Path) -> list[Path]:
     if not directory.is_dir():
         raise NotADirectoryError(f"Not a directory: {directory}")
@@ -24,11 +27,7 @@ def _list_images(directory: Path) -> list[Path]:
     )
 
 
-def _chunk_size(sample_path: Path, memory_mb: int) -> int:
-    return max(1, (memory_mb * 1024 * 1024) // load_image(sample_path).nbytes)
-
-
-def resolve_inputs(input_path: Path) -> tuple[list[Path], str, Path | None]:
+def _resolve_inputs(input_path: Path) -> tuple[list[Path], str, Path | None]:
     if input_path.is_dir():
         if not (images := _list_images(input_path)):
             raise FileNotFoundError(f"No image files found in {input_path}")
@@ -66,13 +65,13 @@ def _write_cbz(image_paths: list[Path], output_path: Path, root_dir: Path) -> No
 
 @contextmanager
 def _batch_io(input_path: Path, output_path: Path):
-    image_paths, src_type, temp_input = resolve_inputs(input_path)
+    image_paths, src_type, temp_input = _resolve_inputs(input_path)
     print(f"  Source: {src_type} ({len(image_paths)} images)")
     out_dir = Path(tempfile.mkdtemp(prefix="kiero_out_")) if src_type == "cbz" else Path(output_path)
     if src_type != "cbz":
         out_dir.mkdir(parents=True, exist_ok=True)
     try:
-        yield image_paths, src_type, out_dir
+        yield image_paths, out_dir
         if src_type == "cbz":
             _write_cbz(sorted(p for p in out_dir.rglob("*") if p.is_file()), Path(output_path), root_dir=out_dir)
             print(f"\n  CBZ written to {output_path}")
@@ -81,6 +80,18 @@ def _batch_io(input_path: Path, output_path: Path):
             shutil.rmtree(temp_input, ignore_errors=True)
         if src_type == "cbz":
             shutil.rmtree(out_dir, ignore_errors=True)
+
+
+@contextmanager
+def _timed_batch(input_path: Path, output_path: Path):
+    t0 = time.time()
+    with _batch_io(input_path, output_path) as (image_paths, out_dir):
+        yield image_paths, out_dir
+        n = len(image_paths)
+        print(f"\n  Batch complete: {n} images in {time.time() - t0:.1f}s ({(time.time() - t0) / n:.1f}s/image avg)")
+
+
+# --- Processing: per-image loop, shape validation, shared mask computation ---
 
 
 def _process_images(image_paths: list[Path], out_dir: Path, fn: Callable[[np.ndarray], tuple[np.ndarray, str]]) -> None:
@@ -101,7 +112,11 @@ def _validate_shapes(images: list[np.ndarray], ref_shape: tuple[int, int] | None
     return next(iter(shapes))
 
 
-def collect_shared_mask(
+def _chunk_size(sample_path: Path, memory_mb: int) -> int:
+    return max(1, (memory_mb * 1024 * 1024) // load_image(sample_path).nbytes)
+
+
+def _collect_shared_mask(
     image_paths: list[Path],
     detector: WatermarkDetector,
     sample_n: int | None = None,
@@ -138,6 +153,9 @@ def collect_shared_mask(
     return shared_mask
 
 
+# --- Public API: called by cli.py ---
+
+
 def detect_batch(
     input_path: Path,
     output_path: Path,
@@ -146,26 +164,18 @@ def detect_batch(
     confidence: float = 0.25,
     memory_mb: int = 1024,
 ) -> None:
-    image_paths, src_type, temp_dir = resolve_inputs(input_path)
+    image_paths, src_type, temp_dir = _resolve_inputs(input_path)
     print(f"  Source: {src_type} ({len(image_paths)} images)")
     try:
         print(f"  Sample: {sample_n or 'all'}, confidence: {confidence}")
-        mask = collect_shared_mask(image_paths, detector, sample_n=sample_n, confidence=confidence, memory_mb=memory_mb)
+        mask = _collect_shared_mask(
+            image_paths, detector, sample_n=sample_n, confidence=confidence, memory_mb=memory_mb
+        )
         save_image(mask, output_path)
         print(f"Shared mask saved to {output_path}")
     finally:
         if temp_dir is not None:
             shutil.rmtree(temp_dir, ignore_errors=True)
-
-
-@contextmanager
-def _timed_batch(input_path: Path, output_path: Path):
-    t0 = time.time()
-    with _batch_io(input_path, output_path) as (image_paths, src_type, out_dir):
-        yield image_paths, src_type, out_dir
-        elapsed = time.time() - t0
-        n = len(image_paths)
-        print(f"\n  Batch complete: {n} images in {elapsed:.1f}s ({elapsed / n:.1f}s/image avg)")
 
 
 def run_batch(
@@ -179,19 +189,18 @@ def run_batch(
     memory_mb: int = 1024,
     mask_output: Path | None = None,
 ) -> None:
-    with _timed_batch(input_path, output_path) as (image_paths, _, out_dir):
+    with _timed_batch(input_path, output_path) as (image_paths, out_dir):
         if per_image:
             print("\n  Per-image mode: detecting and inpainting each image...")
 
             def _detect_and_inpaint(image: np.ndarray) -> tuple[np.ndarray, str]:
-                mask = detector.detect(image)
-                pct = mask_ratio(mask)
+                pct = mask_ratio(mask := detector.detect(image))
                 return (inpainter.inpaint(image, mask) if pct > 0 else image), f"{pct:.1%} masked"
 
             _process_images(image_paths, out_dir, _detect_and_inpaint)
             return
 
-        shared_mask = collect_shared_mask(
+        shared_mask = _collect_shared_mask(
             image_paths, detector, sample_n=sample_n, confidence=confidence, memory_mb=memory_mb
         )
         if mask_output:
@@ -212,5 +221,5 @@ def inpaint_batch(input_path: Path, output_path: Path, mask: np.ndarray, inpaint
     empty = mask_ratio(mask) == 0
     if empty:
         print("  Mask is empty — nothing to inpaint.")
-    with _timed_batch(input_path, output_path) as (image_paths, _, out_dir):
+    with _timed_batch(input_path, output_path) as (image_paths, out_dir):
         _process_images(image_paths, out_dir, lambda img: (img if empty else inpainter.inpaint(img, mask), ""))
