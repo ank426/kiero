@@ -153,11 +153,11 @@ def detect_batch(
 @contextmanager
 def _timed_batch(input_path: Path, output_path: Path):
     t0 = time.time()
-    with _batch_io(input_path, output_path) as (image_paths, src_type, out_dir):
-        yield image_paths, src_type, out_dir
+    with _batch_io(input_path, output_path) as (img_paths, src_type, out_dir):
+        yield img_paths, src_type, out_dir
         elapsed = time.time() - t0
         print(
-            f"\n  Batch complete: {len(image_paths)} images in {elapsed:.1f}s ({elapsed / len(image_paths):.1f}s/image avg)"
+            f"\n  Batch complete: {len(img_paths)} images in {elapsed:.1f}s ({elapsed / len(img_paths):.1f}s/image avg)"
         )
 
 
