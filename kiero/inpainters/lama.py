@@ -18,7 +18,7 @@ class LamaInpainter(Inpainter):
         import torch
         from simple_lama_inpainting import SimpleLama
 
-        dev = torch.device(self._device if self._device else ("cuda" if torch.cuda.is_available() else "cpu"))
+        dev = torch.device(self._device or ("cuda" if torch.cuda.is_available() else "cpu"))
         self._model = SimpleLama(device=dev)
 
     def _inpaint(self, image: np.ndarray, mask: np.ndarray) -> np.ndarray:
