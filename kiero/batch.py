@@ -156,9 +156,8 @@ def _timed_batch(input_path: Path, output_path: Path):
     with _batch_io(input_path, output_path) as (image_paths, src_type, out_dir):
         yield image_paths, src_type, out_dir
         elapsed = time.time() - t0
-        print(
-            f"\n  Batch complete: {len(image_paths)} images in {elapsed:.1f}s ({elapsed / len(image_paths):.1f}s/image avg)"
-        )
+        n = len(image_paths)
+        print(f"\n  Batch complete: {n} images in {elapsed:.1f}s ({elapsed / n:.1f}s/image avg)")
 
 
 def run_batch(
