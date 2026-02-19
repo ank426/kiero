@@ -7,9 +7,8 @@ from PIL import Image
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
 
 
-def mask_stats(mask: np.ndarray) -> tuple[int, int, float]:
-    n_masked, total = int(np.count_nonzero(mask)), mask.shape[0] * mask.shape[1]
-    return n_masked, total, n_masked / total * 100
+def mask_ratio(mask: np.ndarray) -> float:
+    return np.count_nonzero(mask) / mask.size
 
 
 def bgr_to_pil(image: np.ndarray) -> Image.Image:

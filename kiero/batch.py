@@ -11,7 +11,7 @@ import numpy as np
 
 from kiero.detectors.base import WatermarkDetector
 from kiero.inpainters.base import Inpainter
-from kiero.utils import IMAGE_EXTENSIONS, list_images, load_image, mask_stats, save_image
+from kiero.utils import IMAGE_EXTENSIONS, list_images, load_image, mask_ratio, save_image
 
 
 def _chunk_size(sample_path: Path, memory_mb: int) -> int:
@@ -124,7 +124,7 @@ def collect_shared_mask(
         raise ValueError("No images to process")
 
     shared_mask = ((mask_sum / n) >= confidence).astype(np.uint8) * 255
-    print(f"  Shared mask: {mask_stats(shared_mask)[2]:.1f}% of image masked")
+    print(f"  Shared mask: {mask_ratio(shared_mask):.1%} of image masked")
     return shared_mask
 
 
@@ -175,8 +175,8 @@ def run_batch(
 
             def _detect_and_inpaint(image: np.ndarray) -> tuple[np.ndarray, str]:
                 mask = detector.detect(image)
-                n_m, _, pct = mask_stats(mask)
-                return (inpainter.inpaint(image, mask) if n_m > 0 else image), f"{pct:.1f}% masked"
+                pct = mask_ratio(mask)
+                return (inpainter.inpaint(image, mask) if pct > 0 else image), f"{pct:.1%} masked"
 
             _process_images(image_paths, out_dir, _detect_and_inpaint)
             return
@@ -188,7 +188,7 @@ def run_batch(
             save_image(shared_mask, mask_output)
             print(f"  Shared mask saved to {mask_output}")
 
-        if mask_stats(shared_mask)[0] == 0:
+        if mask_ratio(shared_mask) == 0:
             print("  No watermark detected in shared mask. Copying originals.")
             for i, p in enumerate(image_paths):
                 shutil.copy2(p, out_dir / p.name)
@@ -199,8 +199,8 @@ def run_batch(
 
 
 def inpaint_batch(input_path: Path, output_path: Path, mask: np.ndarray, inpainter: Inpainter) -> None:
-    n_masked = mask_stats(mask)[0]
-    if n_masked == 0:
+    empty = mask_ratio(mask) == 0
+    if empty:
         print("  Mask is empty — nothing to inpaint.")
     with _timed_batch(input_path, output_path) as (image_paths, _, out_dir):
-        _process_images(image_paths, out_dir, lambda img: (inpainter.inpaint(img, mask) if n_masked > 0 else img, ""))
+        _process_images(image_paths, out_dir, lambda img: (img if empty else inpainter.inpaint(img, mask), ""))

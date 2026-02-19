@@ -5,7 +5,7 @@ import numpy as np
 
 from kiero.detectors.yolo import YoloDetector
 from kiero.inpainters.lama import LamaInpainter
-from kiero.utils import load_image, load_mask, mask_stats, save_image
+from kiero.utils import load_image, load_mask, mask_ratio, save_image
 
 
 class Pipeline:
@@ -17,7 +17,7 @@ class Pipeline:
         t0 = time.time()
         mask = self._detector.detect(image)
         elapsed = time.time() - t0
-        print(f"  Detection done in {elapsed:.1f}s — {mask_stats(mask)[2]:.1f}% masked")
+        print(f"  Detection done in {elapsed:.1f}s — {mask_ratio(mask):.1%} masked")
         return mask, elapsed
 
     def _inpaint(self, image: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, float]:
@@ -45,7 +45,7 @@ class Pipeline:
         if mask_path:
             save_image(mask, mask_path)
             print(f"  Mask saved to {mask_path}")
-        if mask_stats(mask)[0] == 0:
+        if mask_ratio(mask) == 0:
             print("  No watermark detected, skipping inpainting.")
             save_image(image, output_path)
             print(f"  Result saved to {output_path}")
