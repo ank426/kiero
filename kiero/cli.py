@@ -160,7 +160,10 @@ def _cmd_inpaint(args):
 
         print(f"Output: {args.output}")
         inpaint_batch(
-            input_path=inp, output_path=Path(args.output), mask=load_mask(mask_path), inpainter=_make_inpainter(args)
+            input_path=inp,
+            output_path=Path(args.output),
+            mask=load_mask(mask_path),
+            inpainter=_make_inpainter(args)
         )
     else:
         _make_pipeline(args).inpaint(inp, mask_path, Path(args.output))
