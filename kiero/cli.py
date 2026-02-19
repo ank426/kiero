@@ -27,9 +27,18 @@ def _require_exists(path: Path, label: str = "Input") -> None:
 
 
 def _subparser(sub, name: str, *, help: str, usage: str) -> argparse.ArgumentParser:
-    p = sub.add_parser(name, help=help, usage=usage, formatter_class=_Formatter)
-    p.add_argument("input", help="Image, directory, or .cbz file.")
-    p.add_argument("output", help="Output path.")
+    p = sub.add_parser(
+        name, help=help, usage=usage, formatter_class=_Formatter, add_help=False
+    )
+    p.add_argument(
+        "-h",
+        "--help",
+        action="help",
+        default=argparse.SUPPRESS,
+        help="Show this help message and exit",
+    )
+    p.add_argument("input", help="Image, directory, or .cbz file")
+    p.add_argument("output", help="Output path")
     p._positionals.title = "Arguments"
     p._optionals.title = "Options"
     return p
@@ -40,37 +49,37 @@ def _add_options(parser: argparse.ArgumentParser) -> None:
         "--confidence",
         type=float,
         default=0.25,
-        help="YOLO detection confidence threshold (default: 0.25).",
+        help="YOLO detection confidence threshold (default: 0.25)",
     )
     parser.add_argument(
         "--padding",
         type=int,
         default=10,
-        help="Extra pixels around each detected box (default: 10).",
+        help="Extra pixels around each detected box (default: 10)",
     )
     parser.add_argument(
         "--device",
         default=None,
-        help="Device: 'cuda', 'cpu', or auto (default: auto).",
+        help="Device: 'cuda', 'cpu', or auto (default: auto)",
     )
     parser.add_argument(
         "--per-image",
         action="store_true",
-        help="Detect independently per image instead of shared mask.",
+        help="Detect independently per image instead of shared mask",
     )
     parser.add_argument(
         "--sample",
         type=int,
         default=None,
         metavar="N",
-        help="Sample N images for mask averaging (default: all).",
+        help="Sample N images for mask averaging (default: all)",
     )
     parser.add_argument(
         "--memory",
         type=int,
         default=1024,
         metavar="MB",
-        help="Memory budget in MB for batch loading (default: 1024).",
+        help="Memory budget in MB for batch loading (default: 1024)",
     )
 
 
@@ -95,6 +104,14 @@ def main():
         prog="kiero",
         description="Manga watermark detector and remover.",
         formatter_class=_Formatter,
+        add_help=False,
+    )
+    parser.add_argument(
+        "-h",
+        "--help",
+        action="help",
+        default=argparse.SUPPRESS,
+        help="Show this help message and exit",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -104,7 +121,7 @@ def main():
         help="Detect and inpaint (full pipeline).",
         usage="%(prog)s [OPTIONS] input output",
     )
-    p_run.add_argument("--mask-output", help="Save detection mask here.")
+    p_run.add_argument("--mask-output", help="Save detection mask here")
     _add_options(p_run)
 
     p_det = _subparser(
@@ -121,11 +138,11 @@ def main():
         help="Inpaint with a provided mask.",
         usage="%(prog)s [OPTIONS] -m MASK input output",
     )
-    p_inp.add_argument("-m", "--mask", required=True, help="Binary mask image.")
+    p_inp.add_argument("-m", "--mask", required=True, help="Binary mask image")
     p_inp.add_argument(
         "--device",
         default=None,
-        help="Device: 'cuda', 'cpu', or auto (default: auto).",
+        help="Device: 'cuda', 'cpu', or auto (default: auto)",
     )
 
     args = parser.parse_args()
