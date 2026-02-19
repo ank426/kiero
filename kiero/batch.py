@@ -11,7 +11,17 @@ import numpy as np
 
 from kiero.detectors.base import WatermarkDetector
 from kiero.inpainters.base import Inpainter
-from kiero.utils import IMAGE_EXTENSIONS, list_images, load_image, mask_ratio, save_image
+from kiero.utils import load_image, mask_ratio, save_image
+
+_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
+
+
+def _list_images(directory: Path) -> list[Path]:
+    if not directory.is_dir():
+        raise NotADirectoryError(f"Not a directory: {directory}")
+    return sorted(
+        (p for p in directory.iterdir() if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS), key=lambda p: p.name
+    )
 
 
 def _chunk_size(sample_path: Path, memory_mb: int) -> int:
@@ -20,7 +30,7 @@ def _chunk_size(sample_path: Path, memory_mb: int) -> int:
 
 def resolve_inputs(input_path: Path) -> tuple[list[Path], str, Path | None]:
     if input_path.is_dir():
-        if not (images := list_images(input_path)):
+        if not (images := _list_images(input_path)):
             raise FileNotFoundError(f"No image files found in {input_path}")
         return images, "directory", None
     if input_path.suffix.lower() in {".cbz", ".zip"}:
@@ -39,7 +49,7 @@ def _extract_cbz(cbz_path: Path) -> tuple[list[Path], str, Path]:
                 raise ValueError(f"Zip slip detected in {cbz_path}: member '{member}' escapes extraction directory")
         zf.extractall(tmp)
     images = sorted(
-        (p for p in tmp.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS), key=lambda p: p.name
+        (p for p in tmp.rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS), key=lambda p: p.name
     )
     if not images:
         shutil.rmtree(tmp, ignore_errors=True)

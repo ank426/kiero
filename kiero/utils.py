@@ -3,19 +3,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
-
 
 def mask_ratio(mask: np.ndarray) -> float:
     return np.count_nonzero(mask) / mask.size
-
-
-def list_images(directory: Path) -> list[Path]:
-    if not directory.is_dir():
-        raise NotADirectoryError(f"Not a directory: {directory}")
-    return sorted(
-        (p for p in directory.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS), key=lambda p: p.name
-    )
 
 
 def _read(path: Path, flags: int, label: str) -> np.ndarray:
