@@ -27,19 +27,17 @@ def _list_images(directory: Path) -> list[Path]:
     )
 
 
-def _resolve_inputs(input_path: Path) -> tuple[list[Path], str, Path | None]:
+def _resolve_inputs(input_path: Path) -> tuple[list[Path], bool, Path | None]:
     if input_path.is_dir():
         if not (images := _list_images(input_path)):
             raise FileNotFoundError(f"No image files found in {input_path}")
-        return images, "directory", None
+        return images, False, None
     if input_path.suffix.lower() in {".cbz", ".zip"}:
         return _extract_cbz(input_path)
-    if not input_path.is_file():
-        raise FileNotFoundError(f"Input not found: {input_path}")
-    return [input_path], "file", None
+    raise ValueError(f"Expected a directory or .cbz/.zip file, got: {input_path}")
 
 
-def _extract_cbz(cbz_path: Path) -> tuple[list[Path], str, Path]:
+def _extract_cbz(cbz_path: Path) -> tuple[list[Path], bool, Path]:
     tmp = Path(tempfile.mkdtemp(prefix="kiero_cbz_"))
     with zipfile.ZipFile(cbz_path, "r") as zf:
         for member in zf.namelist():
@@ -53,7 +51,7 @@ def _extract_cbz(cbz_path: Path) -> tuple[list[Path], str, Path]:
     if not images:
         shutil.rmtree(tmp, ignore_errors=True)
         raise FileNotFoundError(f"No image files found in CBZ: {cbz_path}")
-    return images, "cbz", tmp
+    return images, True, tmp
 
 
 def _write_cbz(image_paths: list[Path], output_path: Path, root_dir: Path) -> None:
@@ -65,20 +63,20 @@ def _write_cbz(image_paths: list[Path], output_path: Path, root_dir: Path) -> No
 
 @contextmanager
 def _batch_io(input_path: Path, output_path: Path):
-    image_paths, src_type, temp_input = _resolve_inputs(input_path)
-    print(f"  Source: {src_type} ({len(image_paths)} images)")
-    out_dir = Path(tempfile.mkdtemp(prefix="kiero_out_")) if src_type == "cbz" else Path(output_path)
-    if src_type != "cbz":
+    image_paths, is_archive, temp_input = _resolve_inputs(input_path)
+    print(f"  Source: {'archive' if is_archive else 'directory'} ({len(image_paths)} images)")
+    out_dir = Path(tempfile.mkdtemp(prefix="kiero_out_")) if is_archive else Path(output_path)
+    if not is_archive:
         out_dir.mkdir(parents=True, exist_ok=True)
     try:
         yield image_paths, out_dir
-        if src_type == "cbz":
+        if is_archive:
             _write_cbz(sorted(p for p in out_dir.rglob("*") if p.is_file()), Path(output_path), root_dir=out_dir)
-            print(f"\n  CBZ written to {output_path}")
+            print(f"\n  Archive written to {output_path}")
     finally:
         if temp_input is not None:
             shutil.rmtree(temp_input, ignore_errors=True)
-        if src_type == "cbz":
+        if is_archive:
             shutil.rmtree(out_dir, ignore_errors=True)
 
 
@@ -164,8 +162,8 @@ def detect_batch(
     confidence: float = 0.25,
     memory_mb: int = 1024,
 ) -> None:
-    image_paths, src_type, temp_dir = _resolve_inputs(input_path)
-    print(f"  Source: {src_type} ({len(image_paths)} images)")
+    image_paths, is_archive, temp_dir = _resolve_inputs(input_path)
+    print(f"  Source: {'archive' if is_archive else 'directory'} ({len(image_paths)} images)")
     try:
         print(f"  Sample: {sample_n or 'all'}, confidence: {confidence}")
         mask = _collect_shared_mask(
