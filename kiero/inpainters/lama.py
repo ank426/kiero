@@ -3,7 +3,6 @@ import numpy as np
 from PIL import Image
 
 from kiero.inpainters.base import Inpainter
-from kiero.utils import bgr_to_pil
 
 
 class LamaInpainter(Inpainter):
@@ -28,9 +27,9 @@ class LamaInpainter(Inpainter):
             sz = (int(w * (s := self._max_dim / max(h, w))), int(h * s))
             img_in = cv2.resize(image, sz, interpolation=cv2.INTER_AREA)
             mask_in = cv2.resize(mask, sz, interpolation=cv2.INTER_NEAREST)
-        result_bgr = cv2.cvtColor(
-            np.array(self._model(bgr_to_pil(img_in), Image.fromarray(mask_in))), cv2.COLOR_RGB2BGR
-        )
+        pil_img = Image.fromarray(cv2.cvtColor(img_in, cv2.COLOR_BGR2RGB))
+        result_pil = self._model(pil_img, Image.fromarray(mask_in))
+        result_bgr = cv2.cvtColor(np.array(result_pil), cv2.COLOR_RGB2BGR)
         if not needs_resize:
             return result_bgr
         full = cv2.resize(result_bgr, (w, h), interpolation=cv2.INTER_LANCZOS4)

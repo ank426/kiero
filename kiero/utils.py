@@ -2,17 +2,12 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from PIL import Image
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
 
 
 def mask_ratio(mask: np.ndarray) -> float:
     return np.count_nonzero(mask) / mask.size
-
-
-def bgr_to_pil(image: np.ndarray) -> Image.Image:
-    return Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
 
 def list_images(directory: Path) -> list[Path]:
