@@ -5,11 +5,9 @@ from PIL import Image
 from kiero.inpainters.base import Inpainter
 from kiero.utils import bgr_to_pil
 
-_MAX_DIM = 2048
-
 
 class LamaInpainter(Inpainter):
-    def __init__(self, device: str | None = None, max_dim: int = _MAX_DIM):
+    def __init__(self, device: str | None = None, max_dim: int = 2048):
         self._device, self._max_dim, self._model = device, max_dim, None
 
     def _load_model(self):
