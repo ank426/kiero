@@ -5,12 +5,9 @@ import numpy as np
 from kiero.detectors.base import WatermarkDetector
 
 _MODEL_REPO = "corzent/yolo11x_watermark_detection"
-_DEFAULT_BATCH_SIZE = 4
 
 
 class YoloDetector(WatermarkDetector):
-    default_batch_size = _DEFAULT_BATCH_SIZE
-
     def __init__(
         self,
         confidence: float = 0.25,
@@ -55,26 +52,18 @@ class YoloDetector(WatermarkDetector):
         )
         return self._results_to_mask(results[0], h, w)
 
-    def detect_batch(
-        self, images: list[np.ndarray], batch_size: int | None = None
-    ) -> list[np.ndarray]:
+    def detect_batch(self, images: list[np.ndarray]) -> list[np.ndarray]:
         if not images:
             return []
 
         self._load_model()
-        bs = batch_size or self.default_batch_size
-        masks = []
-
-        for chunk_start in range(0, len(images), bs):
-            chunk = images[chunk_start : chunk_start + bs]
-            results = self._model(
-                chunk,
-                conf=self._confidence,
-                device=self._device,
-                verbose=False,
-            )
-            for img, result in zip(chunk, results):
-                h, w = img.shape[:2]
-                masks.append(self._results_to_mask(result, h, w))
-
-        return masks
+        results = self._model(
+            images,
+            conf=self._confidence,
+            device=self._device,
+            verbose=False,
+        )
+        return [
+            self._results_to_mask(result, img.shape[0], img.shape[1])
+            for img, result in zip(images, results)
+        ]

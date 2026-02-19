@@ -14,25 +14,8 @@ class WatermarkDetector(ABC):
         - values: 0 (clean pixel) or 255 (watermark pixel)
     """
 
-    default_batch_size: int = 1
-
     @abstractmethod
-    def detect(self, image: np.ndarray) -> np.ndarray:
-        """Detect watermark regions in an image.
+    def detect(self, image: np.ndarray) -> np.ndarray: ...
 
-        Args:
-            image: Input image, shape (H, W, 3), dtype uint8, BGR.
-
-        Returns:
-            Binary mask, shape (H, W), dtype uint8, values 0 or 255.
-        """
-        ...
-
-    def detect_batch(
-        self, images: list[np.ndarray], batch_size: int | None = None
-    ) -> list[np.ndarray]:
-        """Detect watermark regions in multiple images.
-
-        Default loops over ``detect()``. Override for GPU-batched inference.
-        """
+    def detect_batch(self, images: list[np.ndarray]) -> list[np.ndarray]:
         return [self.detect(img) for img in images]

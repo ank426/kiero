@@ -19,7 +19,12 @@ from kiero.utils import (
     mask_stats,
 )
 
-_DEFAULT_LOAD_CHUNK = 20
+_DEFAULT_MEMORY_MB = 1024
+
+
+def _chunk_size(sample_path: Path, memory_mb: int) -> int:
+    per_image = load_image(sample_path).nbytes
+    return max(1, (memory_mb * 1024 * 1024) // per_image)
 
 
 def resolve_inputs(input_path: Path) -> tuple[list[Path], str, Path | None]:
@@ -138,8 +143,7 @@ def collect_shared_mask(
     detector: WatermarkDetector,
     sample_n: int | None = None,
     confidence: float = 0.25,
-    batch_size: int | None = None,
-    load_chunk: int = _DEFAULT_LOAD_CHUNK,
+    memory_mb: int = _DEFAULT_MEMORY_MB,
 ) -> np.ndarray:
     if sample_n is not None and sample_n < len(image_paths):
         sampled = random.sample(image_paths, sample_n)
@@ -149,18 +153,19 @@ def collect_shared_mask(
         sample_n = len(sampled)
 
     n = len(sampled)
-    print(f"  Computing shared mask from {n} images...")
+    chunk = _chunk_size(sampled[0], memory_mb)
+    print(f"  Computing shared mask from {n} images ({chunk} per batch)...")
 
     mask_sum: np.ndarray | None = None
     ref_shape: tuple[int, int] | None = None
     det_t0 = time.time()
 
-    for chunk_start in range(0, n, load_chunk):
-        chunk_paths = sampled[chunk_start : chunk_start + load_chunk]
+    for chunk_start in range(0, n, chunk):
+        chunk_paths = sampled[chunk_start : chunk_start + chunk]
         images = [load_image(p) for p in chunk_paths]
 
         ref_shape = _validate_shapes(images, ref_shape)
-        masks = detector.detect_batch(images, batch_size=batch_size)
+        masks = detector.detect_batch(images)
 
         for m in masks:
             m_f = m.astype(np.float32) / 255.0
@@ -169,7 +174,7 @@ def collect_shared_mask(
             else:
                 mask_sum += m_f
 
-        print(f"  Processed {min(chunk_start + load_chunk, n)}/{n} images...")
+        print(f"  Processed {min(chunk_start + chunk, n)}/{n} images...")
 
     det_time = time.time() - det_t0
     print(f"  Detection done in {det_time:.1f}s ({det_time / n:.2f}s/image)")
@@ -192,7 +197,7 @@ def run_batch(
     per_image: bool = False,
     sample_n: int | None = None,
     confidence: float = 0.25,
-    batch_size: int | None = None,
+    memory_mb: int = _DEFAULT_MEMORY_MB,
     mask_output: Path | None = None,
 ) -> None:
     total_t0 = time.time()
@@ -206,7 +211,7 @@ def run_batch(
                 detector,
                 sample_n=sample_n,
                 confidence=confidence,
-                batch_size=batch_size,
+                memory_mb=memory_mb,
             )
             if mask_output:
                 save_image(shared_mask, mask_output)

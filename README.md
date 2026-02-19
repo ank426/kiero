@@ -45,10 +45,10 @@ kiero run imgs/ -o clean/ --sample 10 --mask-output shared_mask.png
 kiero run imgs/ -o clean/ --per-image
 ```
 
-Batch size for GPU inference is configurable:
+Memory budget controls how many images are loaded and sent to the GPU at once:
 
 ```bash
-kiero run imgs/ -o clean/ --sample 20 --batch-size 8
+kiero run imgs/ -o clean/ --sample 20 --memory 2048
 ```
 
 ### Detection only
@@ -74,7 +74,7 @@ kiero inpaint -m mask.png input.png -o result.png
 --device cuda        # Force device (default: auto)
 --per-image          # Detect per image instead of shared mask
 --sample N           # Sample N images for mask averaging (default: all)
---batch-size N       # GPU batch size for detection (default: 4)
+--memory MB          # Memory budget for batch loading in MB (default: 1024)
 ```
 
 ## Project structure

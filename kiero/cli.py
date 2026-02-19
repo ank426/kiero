@@ -55,11 +55,11 @@ def _add_batch_options(parser: argparse.ArgumentParser) -> None:
         help="Sample N images for mask averaging (default: all).",
     )
     group.add_argument(
-        "--batch-size",
+        "--memory",
         type=int,
-        default=None,
-        metavar="N",
-        help="GPU batch size for detection (default: 4).",
+        default=1024,
+        metavar="MB",
+        help="Memory budget in MB for batch loading (default: 1024).",
     )
 
 
@@ -139,7 +139,7 @@ def _cmd_run(args):
             per_image=args.per_image,
             sample_n=args.sample,
             confidence=args.confidence,
-            batch_size=args.batch_size,
+            memory_mb=args.memory,
             mask_output=Path(args.mask_output) if args.mask_output else None,
         )
     else:
@@ -178,7 +178,7 @@ def _cmd_detect(args):
                 _make_detector(args),
                 sample_n=args.sample,
                 confidence=args.confidence,
-                batch_size=args.batch_size,
+                memory_mb=args.memory,
             )
             save_image(mask, args.output)
             print(f"Shared mask saved to {args.output}")
