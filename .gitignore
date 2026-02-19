@@ -9,11 +9,6 @@ wheels/
 # Virtual environments
 .venv
 
-# Output directories
-imgs/
-output/
-*.png
-
 # Linter cache
 .ruff_cache/
 
