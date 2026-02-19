@@ -110,7 +110,7 @@ def _make_inpainter(args):
 def main():
     parser = argparse.ArgumentParser(
         prog="kiero",
-        description="Manga watermark detector and remover.",
+        description="Manga watermark detector and remover",
         formatter_class=_Formatter,
         add_help=False,
     )
