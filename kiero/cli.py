@@ -5,9 +5,15 @@ import time
 from pathlib import Path
 
 
-def _formatter(prog: str) -> argparse.HelpFormatter:
-    width = shutil.get_terminal_size().columns
-    return argparse.HelpFormatter(prog, max_help_position=40, width=width)
+class _Formatter(argparse.HelpFormatter):
+    def __init__(self, prog: str):
+        width = shutil.get_terminal_size().columns
+        super().__init__(prog, max_help_position=40, width=width)
+
+    def _format_usage(self, usage, actions, groups, prefix):
+        if prefix is None:
+            prefix = "Usage: "
+        return super()._format_usage(usage, actions, groups, prefix)
 
 
 def _is_batch(path: Path) -> bool:
@@ -66,7 +72,7 @@ def main():
     parser = argparse.ArgumentParser(
         prog="kiero",
         description="Manga watermark detector and remover.",
-        formatter_class=_formatter,
+        formatter_class=_Formatter,
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -74,32 +80,34 @@ def main():
         "run",
         help="Detect and inpaint (full pipeline).",
         usage="%(prog)s [OPTIONS] input output",
-        formatter_class=_formatter,
+        formatter_class=_Formatter,
     )
     p_run.add_argument("input", help="Image, directory, or .cbz file.")
     p_run.add_argument("output", help="Output path.")
     p_run.add_argument("--mask-output", help="Save detection mask here.")
     _add_common_options(p_run)
     _add_batch_options(p_run)
-    p_run._positionals.title = "arguments"
+    p_run._positionals.title = "Arguments"
+    p_run._optionals.title = "Options"
 
     p_det = sub.add_parser(
         "detect",
         help="Detect watermarks, save mask only.",
         usage="%(prog)s [OPTIONS] input output",
-        formatter_class=_formatter,
+        formatter_class=_Formatter,
     )
     p_det.add_argument("input", help="Image, directory, or .cbz file.")
     p_det.add_argument("output", help="Mask output path.")
     _add_common_options(p_det)
     _add_batch_options(p_det)
-    p_det._positionals.title = "arguments"
+    p_det._positionals.title = "Arguments"
+    p_det._optionals.title = "Options"
 
     p_inp = sub.add_parser(
         "inpaint",
         help="Inpaint with a provided mask.",
         usage="%(prog)s [OPTIONS] -m MASK input output",
-        formatter_class=_formatter,
+        formatter_class=_Formatter,
     )
     p_inp.add_argument("input", help="Image, directory, or .cbz file.")
     p_inp.add_argument("output", help="Result output path.")
@@ -107,7 +115,8 @@ def main():
     p_inp.add_argument(
         "--device", default=None, help="Device: 'cuda', 'cpu', or auto (default: auto)."
     )
-    p_inp._positionals.title = "arguments"
+    p_inp._positionals.title = "Arguments"
+    p_inp._optionals.title = "Options"
 
     args = parser.parse_args()
 
