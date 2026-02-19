@@ -48,6 +48,7 @@ class Pipeline:
         if np.count_nonzero(mask) == 0:
             print("  No watermark detected, skipping inpainting.")
             save_image(image, output_path)
+            print(f"  Result saved to {output_path}")
             return image
         result, inp_time = self._inpaint(image, mask)
         print(f"  Total: {det_time + inp_time:.1f}s")
