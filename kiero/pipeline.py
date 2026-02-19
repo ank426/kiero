@@ -45,7 +45,7 @@ class Pipeline:
         if mask_path:
             save_image(mask, mask_path)
             print(f"  Mask saved to {mask_path}")
-        if np.count_nonzero(mask) == 0:
+        if mask_stats(mask)[0] == 0:
             print("  No watermark detected, skipping inpainting.")
             save_image(image, output_path)
             print(f"  Result saved to {output_path}")
