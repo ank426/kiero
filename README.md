@@ -21,9 +21,9 @@ Output format mirrors the input.
 ### Full pipeline (detect + inpaint)
 
 ```bash
-kiero run input.png -o clean.png
-kiero run imgs/ -o imgs_clean/
-kiero run manga.cbz -o manga_clean.cbz
+kiero run input.png clean.png
+kiero run imgs/ imgs_clean/
+kiero run manga.cbz manga_clean.cbz
 ```
 
 Output path is optional — defaults to `<input_stem>_clean.<ext>`.
@@ -36,26 +36,26 @@ to every image.
 
 ```bash
 # Sample 10 images for mask averaging
-kiero run imgs/ -o clean/ --sample 10
+kiero run imgs/ clean/ --sample 10
 
 # Save the shared mask for inspection
-kiero run imgs/ -o clean/ --sample 10 --mask-output shared_mask.png
+kiero run imgs/ clean/ --sample 10 --mask-output shared_mask.png
 
 # Per-image mode: detect independently per image (no averaging)
-kiero run imgs/ -o clean/ --per-image
+kiero run imgs/ clean/ --per-image
 ```
 
 Memory budget controls how many images are loaded and sent to the GPU at once:
 
 ```bash
-kiero run imgs/ -o clean/ --sample 20 --memory 2048
+kiero run imgs/ clean/ --sample 20 --memory 2048
 ```
 
 ### Detection only
 
 ```bash
-kiero detect input.png -o mask.png
-kiero detect imgs/ -o shared_mask.png --sample 10
+kiero detect input.png mask.png
+kiero detect imgs/ shared_mask.png --sample 10
 ```
 
 ### Inpainting only
@@ -63,7 +63,7 @@ kiero detect imgs/ -o shared_mask.png --sample 10
 Bring your own mask (white = watermark, black = clean):
 
 ```bash
-kiero inpaint -m mask.png input.png -o result.png
+kiero inpaint -m mask.png input.png result.png
 ```
 
 ### Options

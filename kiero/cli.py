@@ -1,7 +1,13 @@
 import argparse
+import shutil
 import sys
 import time
 from pathlib import Path
+
+
+def _formatter(prog: str) -> argparse.HelpFormatter:
+    width = shutil.get_terminal_size().columns
+    return argparse.HelpFormatter(prog, max_help_position=40, width=width)
 
 
 def _is_batch(path: Path) -> bool:
@@ -67,26 +73,46 @@ def main():
     parser = argparse.ArgumentParser(
         prog="kiero",
         description="Manga watermark detector and remover.",
+        formatter_class=_formatter,
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_run = sub.add_parser("run", help="Detect and inpaint (full pipeline).")
+    p_run = sub.add_parser(
+        "run",
+        help="Detect and inpaint (full pipeline).",
+        usage="%(prog)s [OPTIONS] input [output]",
+        formatter_class=_formatter,
+    )
     p_run.add_argument("input", help="Image, directory, or .cbz file.")
-    p_run.add_argument("-o", "--output", help="Output path.")
+    p_run.add_argument(
+        "output", nargs="?", default=None, help="Output path (default: <input>_clean)."
+    )
     p_run.add_argument("--mask-output", help="Save detection mask here.")
     _add_common_options(p_run)
     _add_batch_options(p_run)
 
-    p_det = sub.add_parser("detect", help="Detect watermarks, save mask only.")
+    p_det = sub.add_parser(
+        "detect",
+        help="Detect watermarks, save mask only.",
+        usage="%(prog)s [OPTIONS] input output",
+        formatter_class=_formatter,
+    )
     p_det.add_argument("input", help="Image, directory, or .cbz file.")
-    p_det.add_argument("-o", "--output", required=True, help="Mask output path.")
+    p_det.add_argument("output", help="Mask output path.")
     _add_common_options(p_det)
     _add_batch_options(p_det)
 
-    p_inp = sub.add_parser("inpaint", help="Inpaint with a provided mask.")
+    p_inp = sub.add_parser(
+        "inpaint",
+        help="Inpaint with a provided mask.",
+        usage="%(prog)s [OPTIONS] -m mask input output",
+        formatter_class=_formatter,
+    )
     p_inp.add_argument("input", help="Image, directory, or .cbz file.")
-    p_inp.add_argument("-o", "--output", required=True, help="Result output path.")
-    p_inp.add_argument("-m", "--mask", required=True, help="Binary mask image.")
+    p_inp.add_argument("output", help="Result output path.")
+    p_inp.add_argument(
+        "-m", "--mask", required=True, metavar="mask", help="Binary mask image."
+    )
     p_inp.add_argument("--device", default=None, help="Device (default: auto).")
 
     args = parser.parse_args()
