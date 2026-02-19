@@ -38,9 +38,6 @@ to every image.
 # Sample 10 images for mask averaging
 kiero run imgs/ -o clean/ --sample 10
 
-# Require 30% agreement instead of default 50%
-kiero run imgs/ -o clean/ --sample 10 --mask-threshold 0.3
-
 # Save the shared mask for inspection
 kiero run imgs/ -o clean/ --sample 10 --mask-output shared_mask.png
 
@@ -72,12 +69,11 @@ kiero inpaint -m mask.png input.png -o result.png
 ### Options
 
 ```
---confidence 0.25    # YOLO detection threshold (0-1)
+--confidence 0.25    # Detection threshold, also used for mask averaging (0-1)
 --padding 0          # Pixels to pad detection boxes
 --device cuda        # Force device (default: auto)
 --per-image          # Detect per image instead of shared mask
 --sample N           # Sample N images for mask averaging (default: all)
---mask-threshold 0.5 # Agreement fraction for shared mask (default: 0.5)
 --batch-size N       # GPU batch size for detection (default: 4)
 ```
 

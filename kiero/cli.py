@@ -4,13 +4,6 @@ import time
 from pathlib import Path
 
 
-def _threshold_float(value: str) -> float:
-    f = float(value)
-    if not 0.0 <= f <= 1.0:
-        raise argparse.ArgumentTypeError(f"must be between 0 and 1, got {f}")
-    return f
-
-
 def _is_batch(path: Path) -> bool:
     return path.is_dir() or path.suffix.lower() == ".cbz"
 
@@ -60,12 +53,6 @@ def _add_batch_options(parser: argparse.ArgumentParser) -> None:
         default=None,
         metavar="N",
         help="Sample N images for mask averaging (default: all).",
-    )
-    group.add_argument(
-        "--mask-threshold",
-        type=_threshold_float,
-        default=0.5,
-        help="Agreement fraction for shared mask (default: 0.5).",
     )
     group.add_argument(
         "--batch-size",
@@ -142,7 +129,7 @@ def _cmd_run(args):
         print(f"Mode: {'per-image' if args.per_image else 'shared mask'}")
         if not args.per_image:
             sample_str = str(args.sample) if args.sample else "all"
-            print(f"Sample: {sample_str}, mask threshold: {args.mask_threshold}")
+            print(f"Sample: {sample_str}, confidence: {args.confidence}")
 
         run_batch(
             input_path=input_path,
@@ -151,7 +138,7 @@ def _cmd_run(args):
             inpainter=_make_inpainter(args),
             per_image=args.per_image,
             sample_n=args.sample,
-            mask_threshold=args.mask_threshold,
+            confidence=args.confidence,
             batch_size=args.batch_size,
             mask_output=Path(args.mask_output) if args.mask_output else None,
         )
@@ -184,13 +171,13 @@ def _cmd_detect(args):
 
         try:
             sample_str = str(args.sample) if args.sample else "all"
-            print(f"  Sample: {sample_str}, mask threshold: {args.mask_threshold}")
+            print(f"  Sample: {sample_str}, confidence: {args.confidence}")
 
             mask = collect_shared_mask(
                 image_paths,
                 _make_detector(args),
                 sample_n=args.sample,
-                threshold=args.mask_threshold,
+                confidence=args.confidence,
                 batch_size=args.batch_size,
             )
             save_image(mask, args.output)

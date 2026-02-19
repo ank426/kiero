@@ -137,7 +137,7 @@ def collect_shared_mask(
     image_paths: list[Path],
     detector: WatermarkDetector,
     sample_n: int | None = None,
-    threshold: float = 0.5,
+    confidence: float = 0.25,
     batch_size: int | None = None,
     load_chunk: int = _DEFAULT_LOAD_CHUNK,
 ) -> np.ndarray:
@@ -177,7 +177,7 @@ def collect_shared_mask(
     if mask_sum is None:
         raise ValueError("No images to process")
 
-    shared_mask = ((mask_sum / n) >= threshold).astype(np.uint8) * 255
+    shared_mask = ((mask_sum / n) >= confidence).astype(np.uint8) * 255
 
     _, _, pct = mask_stats(shared_mask)
     print(f"  Shared mask: {pct:.1f}% of image masked")
@@ -191,7 +191,7 @@ def run_batch(
     inpainter: Inpainter,
     per_image: bool = False,
     sample_n: int | None = None,
-    mask_threshold: float = 0.5,
+    confidence: float = 0.25,
     batch_size: int | None = None,
     mask_output: Path | None = None,
 ) -> None:
@@ -205,7 +205,7 @@ def run_batch(
                 image_paths,
                 detector,
                 sample_n=sample_n,
-                threshold=mask_threshold,
+                confidence=confidence,
                 batch_size=batch_size,
             )
             if mask_output:
