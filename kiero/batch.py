@@ -13,8 +13,6 @@ from kiero.detectors.base import WatermarkDetector
 from kiero.inpainters.base import Inpainter
 from kiero.utils import IMAGE_EXTENSIONS, list_images, load_image, mask_stats, save_image
 
-_DEFAULT_MEMORY_MB = 1024
-
 
 def _chunk_size(sample_path: Path, memory_mb: int) -> int:
     return max(1, (memory_mb * 1024 * 1024) // load_image(sample_path).nbytes)
@@ -98,7 +96,7 @@ def collect_shared_mask(
     detector: WatermarkDetector,
     sample_n: int | None = None,
     confidence: float = 0.25,
-    memory_mb: int = _DEFAULT_MEMORY_MB,
+    memory_mb: int = 1024,
 ) -> np.ndarray:
     if sample_n is not None and sample_n < len(image_paths):
         sampled = sorted(random.sample(image_paths, sample_n), key=lambda p: p.name)
@@ -136,7 +134,7 @@ def detect_batch(
     detector: WatermarkDetector,
     sample_n: int | None = None,
     confidence: float = 0.25,
-    memory_mb: int = _DEFAULT_MEMORY_MB,
+    memory_mb: int = 1024,
 ) -> None:
     image_paths, src_type, temp_dir = resolve_inputs(input_path)
     print(f"  Source: {src_type} ({len(image_paths)} images)")
@@ -168,7 +166,7 @@ def run_batch(
     per_image: bool = False,
     sample_n: int | None = None,
     confidence: float = 0.25,
-    memory_mb: int = _DEFAULT_MEMORY_MB,
+    memory_mb: int = 1024,
     mask_output: Path | None = None,
 ) -> None:
     with _timed_batch(input_path, output_path) as (image_paths, _, out_dir):
