@@ -164,7 +164,7 @@ def detect_batch(
     memory_mb: int = 1024,
 ) -> None:
     image_paths, temp_dir = _resolve_inputs(input_path)
-    print(f"  Source: {'archive' if temp_dir else 'directory'} ({len(image_paths)} images)")
+    print(f"  Source: {'cbz' if temp_dir else 'directory'} ({len(image_paths)} images)")
     try:
         print(f"  Sample: {sample_n or 'all'}, confidence: {confidence}")
         mask = _collect_shared_mask(
