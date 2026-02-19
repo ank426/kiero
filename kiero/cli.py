@@ -81,6 +81,7 @@ def main():
     p_run.add_argument("--mask-output", help="Save detection mask here.")
     _add_common_options(p_run)
     _add_batch_options(p_run)
+    p_run._positionals.title = "arguments"
 
     p_det = sub.add_parser(
         "detect",
@@ -92,6 +93,7 @@ def main():
     p_det.add_argument("output", help="Mask output path.")
     _add_common_options(p_det)
     _add_batch_options(p_det)
+    p_det._positionals.title = "arguments"
 
     p_inp = sub.add_parser(
         "inpaint",
@@ -105,6 +107,7 @@ def main():
     p_inp.add_argument(
         "--device", default=None, help="Device: 'cuda', 'cpu', or auto (default: auto)."
     )
+    p_inp._positionals.title = "arguments"
 
     args = parser.parse_args()
 
