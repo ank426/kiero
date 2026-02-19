@@ -15,6 +15,14 @@ class _Formatter(argparse.HelpFormatter):
             prefix = "Usage: "
         return super()._format_usage(usage, actions, groups, prefix)
 
+    def _format_action(self, action):
+        if isinstance(action, argparse._SubParsersAction):
+            parts = []
+            for choice_action in action._get_subactions():
+                parts.append(self._format_action(choice_action))
+            return self._join_parts(parts)
+        return super()._format_action(action)
+
 
 def _is_batch(path: Path) -> bool:
     return path.is_dir() or path.suffix.lower() == ".cbz"
@@ -113,12 +121,14 @@ def main():
         default=argparse.SUPPRESS,
         help="Show this help message and exit",
     )
+    parser._positionals.title = "Commands"
+    parser._optionals.title = "Options"
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_run = _subparser(
         sub,
         "run",
-        help="Detect and inpaint (full pipeline).",
+        help="Detect and inpaint (full pipeline)",
         usage="%(prog)s [OPTIONS] input output",
     )
     p_run.add_argument("--mask-output", help="Save detection mask here")
@@ -127,7 +137,7 @@ def main():
     p_det = _subparser(
         sub,
         "detect",
-        help="Detect watermarks, save mask only.",
+        help="Detect watermarks, save mask only",
         usage="%(prog)s [OPTIONS] input output",
     )
     _add_options(p_det)
@@ -135,7 +145,7 @@ def main():
     p_inp = _subparser(
         sub,
         "inpaint",
-        help="Inpaint with a provided mask.",
+        help="Inpaint with a provided mask",
         usage="%(prog)s [OPTIONS] -m MASK input output",
     )
     p_inp.add_argument("-m", "--mask", required=True, help="Binary mask image")
