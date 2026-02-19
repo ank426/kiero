@@ -9,7 +9,6 @@ dependencies = [
     "opencv-python",
     "Pillow",
     "torch",
-    "torchvision",
     "ultralytics",
     "simple-lama-inpainting",
 ]
