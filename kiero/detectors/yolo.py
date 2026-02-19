@@ -20,7 +20,7 @@ class YoloDetector(WatermarkDetector):
     def _load_model(self):
         if self._model is not None:
             return
-        from ultralytics import YOLO
+        from ultralytics import YOLO  # pyright: ignore[reportPrivateImportUsage]
         from huggingface_hub import hf_hub_download
 
         model_path = hf_hub_download(repo_id=_MODEL_REPO, filename="best.pt")
@@ -28,6 +28,7 @@ class YoloDetector(WatermarkDetector):
 
     def _run(self, source):
         self._load_model()
+        assert self._model is not None
         return self._model(
             source,
             conf=self._confidence,

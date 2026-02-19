@@ -28,6 +28,7 @@ class LamaInpainter(Inpainter):
 
     def _inpaint(self, image: np.ndarray, mask: np.ndarray) -> np.ndarray:
         self._load_model()
+        assert self._model is not None
 
         h, w = image.shape[:2]
         needs_resize = max(h, w) > self._max_dim

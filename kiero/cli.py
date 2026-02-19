@@ -34,9 +34,9 @@ def _require_exists(path: Path, label: str = "Input") -> None:
         sys.exit(1)
 
 
-def _subparser(sub, name: str, *, help: str, usage: str) -> argparse.ArgumentParser:
+def _subparser(sub, name: str, *, desc: str, usage: str) -> argparse.ArgumentParser:
     p = sub.add_parser(
-        name, help=help, usage=usage, formatter_class=_Formatter, add_help=False
+        name, help=desc, usage=usage, formatter_class=_Formatter, add_help=False
     )
     p.add_argument(
         "-h",
@@ -128,7 +128,7 @@ def main():
     p_run = _subparser(
         sub,
         "run",
-        help="Detect and inpaint (full pipeline)",
+        desc="Detect and inpaint (full pipeline)",
         usage="%(prog)s [OPTIONS] input output",
     )
     p_run.add_argument("--mask-output", help="Save detection mask here")
@@ -137,7 +137,7 @@ def main():
     p_det = _subparser(
         sub,
         "detect",
-        help="Detect watermarks, save mask only",
+        desc="Detect watermarks, save mask only",
         usage="%(prog)s [OPTIONS] input output",
     )
     _add_options(p_det)
@@ -145,7 +145,7 @@ def main():
     p_inp = _subparser(
         sub,
         "inpaint",
-        help="Inpaint with a provided mask",
+        desc="Inpaint with a provided mask",
         usage="%(prog)s [OPTIONS] -m MASK input output",
     )
     p_inp.add_argument("-m", "--mask", required=True, help="Binary mask image")
