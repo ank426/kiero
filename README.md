@@ -26,8 +26,6 @@ kiero run imgs/ imgs_clean/
 kiero run manga.cbz manga_clean.cbz
 ```
 
-Output path is optional — defaults to `<input_stem>_clean.<ext>`.
-
 ### Batch mode
 
 When processing a directory or CBZ, kiero assumes all images share the same

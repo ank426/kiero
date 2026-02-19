@@ -20,12 +20,6 @@ def _require_exists(path: Path, label: str = "Input") -> None:
         sys.exit(1)
 
 
-def _default_output(input_path: Path) -> Path:
-    if input_path.is_dir():
-        return input_path.parent / f"{input_path.name}_clean"
-    return input_path.parent / f"{input_path.stem}_clean{input_path.suffix}"
-
-
 def _add_common_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--confidence",
@@ -80,13 +74,11 @@ def main():
     p_run = sub.add_parser(
         "run",
         help="Detect and inpaint (full pipeline).",
-        usage="%(prog)s [OPTIONS] input [output]",
+        usage="%(prog)s [OPTIONS] input output",
         formatter_class=_formatter,
     )
     p_run.add_argument("input", help="Image, directory, or .cbz file.")
-    p_run.add_argument(
-        "output", nargs="?", default=None, help="Output path (default: <input>_clean)."
-    )
+    p_run.add_argument("output", help="Output path.")
     p_run.add_argument("--mask-output", help="Save detection mask here.")
     _add_common_options(p_run)
     _add_batch_options(p_run)
@@ -111,7 +103,9 @@ def main():
     p_inp.add_argument("input", help="Image, directory, or .cbz file.")
     p_inp.add_argument("output", help="Result output path.")
     p_inp.add_argument("-m", "--mask", required=True, help="Binary mask image.")
-    p_inp.add_argument("--device", default=None, help="Device (default: auto).")
+    p_inp.add_argument(
+        "--device", default=None, help="Device: 'cuda', 'cpu', or auto (default: auto)."
+    )
 
     args = parser.parse_args()
 
@@ -142,7 +136,7 @@ def _make_inpainter(args):
 def _cmd_run(args):
     input_path = Path(args.input)
     _require_exists(input_path)
-    output_path = Path(args.output) if args.output else _default_output(input_path)
+    output_path = Path(args.output)
 
     print(f"Input:  {input_path}")
     print(f"Output: {output_path}")
