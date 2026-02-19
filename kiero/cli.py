@@ -4,10 +4,6 @@ import sys
 import time
 from pathlib import Path
 
-_HELP = "Show this help message and exit"
-_DEVICE_HELP = "Device: 'cuda', 'cpu', or auto (default: auto)"
-_USAGE = "%(prog)s [OPTIONS] input output"
-
 
 class _Formatter(argparse.HelpFormatter):
     def __init__(self, prog: str):
@@ -34,7 +30,7 @@ def _require_exists(path: Path, label: str = "Input") -> None:
 
 
 def _add_help(p: argparse.ArgumentParser) -> None:
-    p.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help=_HELP)
+    p.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help="Show this help message and exit")
 
 
 def _subparser(sub, name: str, *, desc: str, usage: str) -> argparse.ArgumentParser:
@@ -49,7 +45,7 @@ def _subparser(sub, name: str, *, desc: str, usage: str) -> argparse.ArgumentPar
 def _add_options(p: argparse.ArgumentParser) -> None:
     p.add_argument("--confidence", type=float, default=0.25, help="YOLO detection confidence threshold (default: 0.25)")
     p.add_argument("--padding", type=int, default=10, help="Extra pixels around each detected box (default: 10)")
-    p.add_argument("--device", default=None, help=_DEVICE_HELP)
+    p.add_argument("--device", default=None, help="Device: 'cuda', 'cpu', or auto (default: auto)")
     p.add_argument("--per-image", action="store_true", help="Detect independently per image instead of shared mask")
     p.add_argument(
         "--sample", type=int, default=None, metavar="N", help="Sample N images for mask averaging (default: all)"
@@ -85,17 +81,19 @@ def main():
     parser._positionals.title, parser._optionals.title = "Commands", "Options"
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_run = _subparser(sub, "run", desc="Detect and inpaint (full pipeline)", usage=_USAGE)
+    p_run = _subparser(sub, "run", desc="Detect and inpaint (full pipeline)", usage="%(prog)s [OPTIONS] input output")
     p_run.add_argument("--mask-output", help="Save detection mask here")
     _add_options(p_run)
 
-    _add_options(_subparser(sub, "detect", desc="Detect watermarks, save mask only", usage=_USAGE))
+    _add_options(
+        _subparser(sub, "detect", desc="Detect watermarks, save mask only", usage="%(prog)s [OPTIONS] input output")
+    )
 
     p_inp = _subparser(
         sub, "inpaint", desc="Inpaint with a provided mask", usage="%(prog)s [OPTIONS] -m MASK input output"
     )
     p_inp.add_argument("-m", "--mask", required=True, help="Binary mask image")
-    p_inp.add_argument("--device", default=None, help=_DEVICE_HELP)
+    p_inp.add_argument("--device", default=None, help="Device: 'cuda', 'cpu', or auto (default: auto)")
 
     args = parser.parse_args()
     {"run": _cmd_run, "detect": _cmd_detect, "inpaint": _cmd_inpaint}[args.command](args)
