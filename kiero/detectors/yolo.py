@@ -20,6 +20,7 @@ class YoloDetector(WatermarkDetector):
 
     def _run(self, source):
         self._load_model()
+        assert self._model is not None
         return self._model(source, conf=self._confidence, device=self._device, verbose=False)
 
     def _to_mask(self, result, h: int, w: int) -> np.ndarray:

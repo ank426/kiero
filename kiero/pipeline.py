@@ -33,7 +33,7 @@ class Pipeline:
         print(f"  Mask saved to {output_path}")
         return mask
 
-    def inpaint(self, image_path: Path, mask_path: Path, output_path: Path) -> np.ndarray:
+    def inpaint(self, image_path: Path, output_path: Path, mask_path: Path) -> np.ndarray:
         result, _ = self._inpaint(load_image(image_path), load_mask(mask_path))
         save_image(result, output_path)
         print(f"  Result saved to {output_path}")

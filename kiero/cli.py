@@ -165,7 +165,7 @@ def _cmd_inpaint(args):
             inpainter=_make_inpainter(args),
         )
     else:
-        _make_pipeline(args).inpaint(inp, mask_path, out)
+        _make_pipeline(args).inpaint(inp, out, mask_path)
     print("Done.")
 
 

@@ -20,6 +20,7 @@ class LamaInpainter(Inpainter):
 
     def _inpaint(self, image: np.ndarray, mask: np.ndarray) -> np.ndarray:
         self._load_model()
+        assert self._model is not None
         h, w = image.shape[:2]
         img_in, mask_in = image, mask
 
