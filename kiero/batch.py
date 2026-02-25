@@ -31,22 +31,11 @@ def _resolve_inputs(input_path: Path) -> tuple[list[Path], Path | None]:
 
     if input_path.suffix.lower() in {".cbz", ".zip"}:
         tmp = Path(tempfile.mkdtemp(prefix="kiero_cbz_"))
-        with zipfile.ZipFile(input_path, "r") as zf:
-            zf.extractall(tmp, filter="data")
-
-        images = sorted(
-            (p for p in tmp.rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS), key=lambda p: p.name
-        )
-        tmp = Path(tempfile.mkdtemp(prefix="kiero_cbz_"))
         with zipfile.ZipFile(input_path) as zf:
-            for member in zf.namelist():
-                if not str((tmp / member).resolve()).startswith(str(tmp.resolve())):
-                    shutil.rmtree(tmp, ignore_errors=True)
-                    raise ValueError(f"Zip slip detected in {input_path}: member '{member}' escapes extraction directory")
             zf.extractall(tmp)
-
         images = sorted(
-            (p for p in tmp.rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS), key=lambda p: p.name
+            (p for p in tmp.rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS),
+            key=lambda p: p.name,
         )
         if not images:
             shutil.rmtree(tmp, ignore_errors=True)
