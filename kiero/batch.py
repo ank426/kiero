@@ -19,39 +19,41 @@ _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
 # --- I/O: input resolution, cbz handling, batch context managers ---
 
 
-def _list_images(directory: Path) -> list[Path]:
-    if not directory.is_dir():
-        raise NotADirectoryError(f"Not a directory: {directory}")
-    return sorted(
-        (p for p in directory.iterdir() if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS), key=lambda p: p.name
-    )
-
-
 def _resolve_inputs(input_path: Path) -> tuple[list[Path], Path | None]:
     if input_path.is_dir():
-        if not (images := _list_images(input_path)):
+        images = sorted(
+            (p for p in input_path.iterdir() if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS),
+            key=lambda p: p.name,
+        )
+        if not images:
             raise FileNotFoundError(f"No image files found in {input_path}")
         return images, None
+
     if input_path.suffix.lower() in {".cbz", ".zip"}:
-        return _extract_cbz(input_path)
+        tmp = Path(tempfile.mkdtemp(prefix="kiero_cbz_"))
+        with zipfile.ZipFile(input_path, "r") as zf:
+            zf.extractall(tmp, filter="data")
+
+        images = sorted(
+            (p for p in tmp.rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS), key=lambda p: p.name
+        )
+        tmp = Path(tempfile.mkdtemp(prefix="kiero_cbz_"))
+        with zipfile.ZipFile(input_path) as zf:
+            for member in zf.namelist():
+                if not str((tmp / member).resolve()).startswith(str(tmp.resolve())):
+                    shutil.rmtree(tmp, ignore_errors=True)
+                    raise ValueError(f"Zip slip detected in {input_path}: member '{member}' escapes extraction directory")
+            zf.extractall(tmp)
+
+        images = sorted(
+            (p for p in tmp.rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS), key=lambda p: p.name
+        )
+        if not images:
+            shutil.rmtree(tmp, ignore_errors=True)
+            raise FileNotFoundError(f"No image files found in CBZ: {input_path}")
+        return images, tmp
+
     raise ValueError(f"Expected a directory or .cbz/.zip file, got: {input_path}")
-
-
-def _extract_cbz(cbz_path: Path) -> tuple[list[Path], Path]:
-    tmp = Path(tempfile.mkdtemp(prefix="kiero_cbz_"))
-    with zipfile.ZipFile(cbz_path, "r") as zf:
-        for member in zf.namelist():
-            if not str((tmp / member).resolve()).startswith(str(tmp.resolve())):
-                shutil.rmtree(tmp, ignore_errors=True)
-                raise ValueError(f"Zip slip detected in {cbz_path}: member '{member}' escapes extraction directory")
-        zf.extractall(tmp)
-    images = sorted(
-        (p for p in tmp.rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS), key=lambda p: p.name
-    )
-    if not images:
-        shutil.rmtree(tmp, ignore_errors=True)
-        raise FileNotFoundError(f"No image files found in CBZ: {cbz_path}")
-    return images, tmp
 
 
 def _write_cbz(image_paths: list[Path], output_path: Path, root_dir: Path) -> None:
