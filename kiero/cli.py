@@ -201,9 +201,8 @@ def _run(
             )
         finally:
             shutil.rmtree(tmp_in, ignore_errors=True)
-        return
 
-    if input_path.is_dir() and _is_cbz(output_path):
+    elif _is_cbz(output_path):
         import shutil
         import tempfile
 
@@ -227,9 +226,8 @@ def _run(
             print(f"\n  Archive written to {output_path}")
         finally:
             shutil.rmtree(tmp_out, ignore_errors=True)
-        return
 
-    if input_path.is_dir():
+    elif input_path.is_dir():
         from kiero.batch import run_batch
 
         print(f"Input Dir:  {input_path}\nOutput Dir: {output_path}")
@@ -284,9 +282,8 @@ def _detect(
             )
         finally:
             shutil.rmtree(tmp_in, ignore_errors=True)
-        return
 
-    if input_path.is_dir():
+    elif input_path.is_dir():
         from kiero.batch import detect_batch
 
         print(f"Input Dir:  {input_path}\nMask Output: {output_path}")
@@ -324,9 +321,8 @@ def _inpaint(input_path: Path, output_path: Path, mask: Path, device: str | None
             )
         finally:
             shutil.rmtree(tmp_in, ignore_errors=True)
-        return
 
-    if input_path.is_dir() and _is_cbz(output_path):
+    elif _is_cbz(output_path):
         import shutil
         import tempfile
 
@@ -345,9 +341,8 @@ def _inpaint(input_path: Path, output_path: Path, mask: Path, device: str | None
             print(f"\n  Archive written to {output_path}")
         finally:
             shutil.rmtree(tmp_out, ignore_errors=True)
-        return
 
-    if input_path.is_dir():
+    elif input_path.is_dir():
         from kiero.batch import inpaint_batch
         from kiero.utils import load_mask
 
