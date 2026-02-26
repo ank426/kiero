@@ -123,15 +123,6 @@ def main():
                 memory=args.memory,
                 device=args.device,
             )
-        case "inpaint":
-            _inpaint(
-                input_path=Path(args.input),
-                output_path=Path(args.output),
-                mask=Path(args.mask),
-                device=args.device,
-            )
-        case _:
-            parser.print_help()
 
 
 def _run(
@@ -146,31 +137,27 @@ def _run(
     mask_output: Path | None,
 ):
     _require_exists(input_path)
-    print(f"Input:  {input_path}\nOutput: {output_path}")
 
     if _is_cbz(input_path):
         import shutil
         import tempfile
 
-        from kiero.batch import run_batch
         from kiero.cbz import extract_cbz, write_cbz
 
+        print(f"Input:  {input_path}\nOutput: {output_path}")
         tmp_in = extract_cbz(input_path)
         tmp_out = Path(tempfile.mkdtemp(prefix="kiero_out_"))
 
         try:
-            print(f"Mode: {'per-image' if per_image else 'shared mask'} (Archive)")
-            if not per_image:
-                print(f"Sample: {sample or 'all'}, confidence: {confidence}")
-            run_batch(
+            _run(
                 input_path=tmp_in,
                 output_path=tmp_out,
-                detector=_make_detector(confidence, padding, device),
-                inpainter=_make_inpainter(device),
                 per_image=per_image,
-                sample_n=sample,
+                sample=sample,
                 confidence=confidence,
-                memory_mb=memory,
+                padding=padding,
+                memory=memory,
+                device=device,
                 mask_output=mask_output,
             )
             write_cbz(tmp_out, output_path)
@@ -182,6 +169,7 @@ def _run(
     elif input_path.is_dir():
         from kiero.batch import run_batch
 
+        print(f"Input:  {input_path}\nOutput: {output_path}")
         print(f"Mode: {'per-image' if per_image else 'shared mask'}")
         if not per_image:
             print(f"Sample: {sample or 'all'}, confidence: {confidence}")
@@ -197,8 +185,9 @@ def _run(
             mask_output=mask_output,
         )
     else:
+        print(f"Input:  {input_path}\nOutput: {output_path}")
         _make_pipeline(confidence, padding, device).run(input_path, output_path, mask_path=mask_output)
-    print("Done.")
+        print("Done.")
 
 
 def _detect(
@@ -211,23 +200,23 @@ def _detect(
     device: str | None,
 ):
     _require_exists(input_path)
-    print(f"Input:  {input_path}\nOutput: {output_path}")
 
     if _is_cbz(input_path):
         import shutil
 
-        from kiero.batch import detect_batch
         from kiero.cbz import extract_cbz
 
+        print(f"Input:  {input_path}\nOutput: {output_path}")
         tmp_in = extract_cbz(input_path)
         try:
-            detect_batch(
+            _detect(
                 input_path=tmp_in,
                 output_path=output_path,
-                detector=_make_detector(confidence, padding, device),
-                sample_n=sample,
+                sample=sample,
                 confidence=confidence,
-                memory_mb=memory,
+                padding=padding,
+                memory=memory,
+                device=device,
             )
         finally:
             shutil.rmtree(tmp_in, ignore_errors=True)
@@ -235,6 +224,7 @@ def _detect(
     elif input_path.is_dir():
         from kiero.batch import detect_batch
 
+        print(f"Input:  {input_path}\nOutput: {output_path}")
         detect_batch(
             input_path=input_path,
             output_path=output_path,
@@ -245,6 +235,7 @@ def _detect(
         )
 
     else:
+        print(f"Input:  {input_path}\nOutput: {output_path}")
         _make_pipeline(confidence, padding, device).detect(input_path, output_path)
 
     print("Done.")
@@ -253,25 +244,23 @@ def _detect(
 def _inpaint(input_path: Path, output_path: Path, mask: Path, device: str | None):
     _require_exists(input_path, "Input")
     _require_exists(mask, "Mask file")
-    print(f"Input: {input_path}\nMask:  {mask}\nOutput: {output_path}")
 
     if _is_cbz(input_path):
         import shutil
         import tempfile
 
-        from kiero.batch import inpaint_batch
         from kiero.cbz import extract_cbz, write_cbz
-        from kiero.utils import load_mask
 
+        print(f"Input: {input_path}\nMask:  {mask}\nOutput: {output_path}")
         tmp_in = extract_cbz(input_path)
         tmp_out = Path(tempfile.mkdtemp(prefix="kiero_out_"))
 
         try:
-            inpaint_batch(
+            _inpaint(
                 input_path=tmp_in,
                 output_path=tmp_out,
-                mask=load_mask(mask),
-                inpainter=_make_inpainter(device),
+                mask=mask,
+                device=device,
             )
             write_cbz(tmp_out, output_path)
             print(f"\n  Archive written to {output_path}")
@@ -283,6 +272,7 @@ def _inpaint(input_path: Path, output_path: Path, mask: Path, device: str | None
         from kiero.batch import inpaint_batch
         from kiero.utils import load_mask
 
+        print(f"Input: {input_path}\nMask:  {mask}\nOutput: {output_path}")
         inpaint_batch(
             input_path=input_path,
             output_path=output_path,
@@ -290,5 +280,10 @@ def _inpaint(input_path: Path, output_path: Path, mask: Path, device: str | None
             inpainter=_make_inpainter(device),
         )
     else:
+        print(f"Input: {input_path}\nMask:  {mask}\nOutput: {output_path}")
         _make_pipeline(0.25, 10, device).inpaint(input_path, output_path, mask)
-    print("Done.")
+        print("Done.")
+
+
+if __name__ == "__main__":
+    main()
