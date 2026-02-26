@@ -1,7 +1,14 @@
+import shutil
+import sys
+import tempfile
+import zipfile
+from pathlib import Path
+
 import cv2
 import numpy as np
-import sys
-from pathlib import Path
+
+
+# --- Image I/O & Mask Utilities ---
 
 
 def load_image(path: str | Path) -> np.ndarray:
@@ -30,6 +37,31 @@ def load_mask(path: str | Path) -> np.ndarray:
 
 def mask_ratio(mask: np.ndarray) -> float:
     return np.count_nonzero(mask) / mask.size
+
+
+# --- Archive Handling (CBZ/ZIP) ---
+
+
+def extract_cbz(input_path: Path) -> Path:
+    tmp = Path(tempfile.mkdtemp(prefix="kiero_cbz_"))
+    with zipfile.ZipFile(input_path, "r") as zf:
+        for member in zf.namelist():
+            if not str((tmp / member).resolve()).startswith(str(tmp.resolve())):
+                shutil.rmtree(tmp, ignore_errors=True)
+                raise ValueError(f"Zip slip detected in {input_path}: member '{member}' escapes extraction directory")
+        zf.extractall(tmp)
+    return tmp
+
+
+def write_cbz(input_dir: Path, output_path: Path) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    image_paths = sorted(p for p in input_dir.rglob("*") if p.is_file())
+    with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_STORED) as zf:
+        for p in image_paths:
+            zf.write(p, arcname=str(p.relative_to(input_dir)))
+
+
+# --- Path & Type Validation ---
 
 
 def is_batch(path: Path) -> bool:
@@ -84,6 +116,9 @@ def validate_inpaint(input_path: Path, output_path: Path, mask: Path):
     else:
         if not is_image(output_path):
             sys.exit(f"Error: Output must be an image file when input is an image: {output_path}")
+
+
+# --- Lazy Component Factories ---
 
 
 def make_detector(confidence: float, padding: int, device: str | None):
