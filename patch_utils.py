@@ -1,53 +1,18 @@
-import cv2
-import numpy as np
 import sys
 from pathlib import Path
-
-
-def load_image(path: str | Path) -> np.ndarray:
-    img = cv2.imdecode(np.fromfile(str(path), dtype=np.uint8), cv2.IMREAD_COLOR)
-    if img is None:
-        raise ValueError(f"Failed to load image: {path}")
-    return img
-
-
-def save_image(img: np.ndarray, path: str | Path) -> None:
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    success, buffer = cv2.imencode(path.suffix, img)
-    if not success:
-        raise ValueError(f"Failed to encode image: {path}")
-    buffer.tofile(str(path))
-
-
-def load_mask(path: str | Path) -> np.ndarray:
-    mask = cv2.imdecode(np.fromfile(str(path), dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
-    if mask is None:
-        raise ValueError(f"Failed to load mask: {path}")
-    _, mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
-    return mask
-
-
-def mask_ratio(mask: np.ndarray) -> float:
-    return np.count_nonzero(mask) / mask.size
-
 
 def is_batch(path: Path) -> bool:
     return path.is_dir() or path.suffix.lower() in {".cbz", ".zip"}
 
-
 def is_cbz(path: Path) -> bool:
     return path.suffix.lower() in {".cbz", ".zip"}
-
 
 def is_image(path: Path) -> bool:
     return path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
 
-
 def require_exists(path: Path, label: str = "Input") -> None:
     if not path.exists():
         sys.exit(f"Error: {label} not found: {path}")
-
 
 def validate_run(input_path: Path, output_path: Path, mask_output: Path | None):
     require_exists(input_path)
@@ -62,14 +27,12 @@ def validate_run(input_path: Path, output_path: Path, mask_output: Path | None):
     if mask_output and not is_image(mask_output):
         sys.exit(f"Error: Mask output must be an image file: {mask_output}")
 
-
 def validate_detect(input_path: Path, output_path: Path):
     require_exists(input_path)
     if not (is_cbz(input_path) or input_path.is_dir() or is_image(input_path)):
         sys.exit(f"Error: Input must be a directory, .cbz/.zip, or an image file: {input_path}")
     if not is_image(output_path):
         sys.exit(f"Error: Mask output must be an image file: {output_path}")
-
 
 def validate_inpaint(input_path: Path, output_path: Path, mask: Path):
     require_exists(input_path, "Input")
@@ -85,20 +48,14 @@ def validate_inpaint(input_path: Path, output_path: Path, mask: Path):
         if not is_image(output_path):
             sys.exit(f"Error: Output must be an image file when input is an image: {output_path}")
 
-
 def make_detector(confidence: float, padding: int, device: str | None):
     from kiero.detectors.yolo import YoloDetector
-
     return YoloDetector(confidence=confidence, padding=padding, device=device)
-
 
 def make_inpainter(device: str | None):
     from kiero.inpainters.lama import LamaInpainter
-
     return LamaInpainter(device=device)
-
 
 def make_pipeline(confidence: float, padding: int, device: str | None):
     from kiero.pipeline import Pipeline
-
     return Pipeline(confidence=confidence, padding=padding, device=device)
