@@ -138,15 +138,15 @@ def detect_batch(
     input_path: Path,
     output_path: Path,
     detector: WatermarkDetector,
-    sample_n: int | None = None,
+    sample: int | None = None,
     confidence: float = 0.25,
     memory_mb: int = 1024,
 ) -> None:
     image_paths = _get_image_paths(input_path)
     print(f"  Source: directory ({len(image_paths)} images)")
-    print(f"  Sample: {sample_n or 'all'}, confidence: {confidence}")
+    print(f"  Sample: {sample or 'all'}, confidence: {confidence}")
     mask = _collect_shared_mask(
-        image_paths, detector, sample_n=sample_n, confidence=confidence, memory_mb=memory_mb
+        image_paths, detector, sample_n=sample, confidence=confidence, memory_mb=memory_mb
     )
     save_image(mask, output_path)
     print(f"Shared mask saved to {output_path}")
