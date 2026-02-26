@@ -51,14 +51,14 @@ def _chunk_size(sample_path: Path, memory_mb: int) -> int:
 def _collect_shared_mask(
     image_paths: list[Path],
     detector: WatermarkDetector,
-    sample_n: int | None = None,
+    sample: int | None = None,
     confidence: float = 0.25,
     memory_mb: int = 1024,
 ) -> np.ndarray:
-    if sample_n is not None and sample_n < len(image_paths):
-        sampled = sorted(random.sample(image_paths, sample_n), key=lambda p: p.name)
+    if sample is not None and sample < len(image_paths):
+        sampled = sorted(random.sample(image_paths, sample), key=lambda p: p.name)
     else:
-        sampled, sample_n = image_paths, len(image_paths)
+        sampled, sample = image_paths, len(image_paths)
 
     n, chunk = len(sampled), _chunk_size(sampled[0], memory_mb)
     print(f"  Computing shared mask from {n} images ({chunk} per batch)...")
@@ -111,7 +111,7 @@ def run_batch(
         _process_images(image_paths, output_path, input_path, _detect_and_inpaint)
     else:
         shared_mask = _collect_shared_mask(
-            image_paths, detector, sample_n=sample_n, confidence=confidence, memory_mb=memory_mb
+            image_paths, detector, sample=sample_n, confidence=confidence, memory_mb=memory_mb
         )
         if mask_output:
             save_image(shared_mask, mask_output)
@@ -146,7 +146,7 @@ def detect_batch(
     print(f"  Source: directory ({len(image_paths)} images)")
     print(f"  Sample: {sample or 'all'}, confidence: {confidence}")
     mask = _collect_shared_mask(
-        image_paths, detector, sample_n=sample, confidence=confidence, memory_mb=memory_mb
+        image_paths, detector, sample=sample, confidence=confidence, memory_mb=memory_mb
     )
     save_image(mask, output_path)
     print(f"Shared mask saved to {output_path}")
