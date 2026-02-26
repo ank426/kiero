@@ -1,8 +1,6 @@
 import random
 import shutil
-import tempfile
 import time
-import zipfile
 from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
@@ -16,80 +14,37 @@ from kiero.utils import load_image, mask_ratio, save_image
 _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
 
 
-# --- I/O: input resolution, cbz handling, batch context managers ---
-
-
-def _resolve_inputs(input_path: Path) -> tuple[list[Path], Path | None]:
-    if input_path.is_dir():
-        images = sorted(
-            (p for p in input_path.iterdir() if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS),
-            key=lambda p: p.name,
-        )
-        if not images:
-            raise FileNotFoundError(f"No image files found in {input_path}")
-        return images, None
-
-    if input_path.suffix.lower() in {".cbz", ".zip"}:
-        tmp = Path(tempfile.mkdtemp(prefix="kiero_cbz_"))
-        with zipfile.ZipFile(input_path) as zf:
-            zf.extractall(tmp)
-        images = sorted(
-            (p for p in tmp.rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS),
-            key=lambda p: p.name,
-        )
-        if not images:
-            shutil.rmtree(tmp, ignore_errors=True)
-            raise FileNotFoundError(f"No image files found in CBZ: {input_path}")
-        return images, tmp
-
-    raise ValueError(f"Expected a directory or .cbz/.zip file, got: {input_path}")
-
-
-def _write_cbz(image_paths: list[Path], output_path: Path, root_dir: Path) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_STORED) as zf:
-        for p in image_paths:
-            zf.write(p, arcname=str(p.relative_to(root_dir)))
-
-
-@contextmanager
-def _batch_io(input_path: Path, output_path: Path):
-    image_paths, temp_input = _resolve_inputs(input_path)
-    print(f"  Source: {'archive' if temp_input else 'directory'} ({len(image_paths)} images)")
-    if temp_input:
-        out_dir = Path(tempfile.mkdtemp(prefix="kiero_out_"))
-    else:
-        out_dir = Path(output_path)
-        out_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        yield image_paths, out_dir
-        if temp_input:
-            _write_cbz(sorted(p for p in out_dir.rglob("*") if p.is_file()), Path(output_path), root_dir=out_dir)
-            print(f"\n  Archive written to {output_path}")
-    finally:
-        if temp_input:
-            shutil.rmtree(temp_input, ignore_errors=True)
-            shutil.rmtree(out_dir, ignore_errors=True)
+def _get_image_paths(input_dir: Path) -> list[Path]:
+    images = sorted(
+        (p for p in input_dir.rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS),
+        key=lambda p: p.name,
+    )
+    if not images:
+        raise FileNotFoundError(f"No image files found in {input_dir}")
+    return images
 
 
 @contextmanager
 def _timed_batch(input_path: Path, output_path: Path):
     t0 = time.time()
-    with _batch_io(input_path, output_path) as (image_paths, out_dir):
-        yield image_paths, out_dir
-        n = len(image_paths)
-        print(f"\n  Batch complete: {n} images in {time.time() - t0:.1f}s ({(time.time() - t0) / n:.1f}s/image avg)")
+    image_paths = _get_image_paths(input_path)
+    output_path.mkdir(parents=True, exist_ok=True)
+    print(f"  Source: directory ({len(image_paths)} images)")
+    yield image_paths, output_path
+    n = len(image_paths)
+    print(f"\n  Batch complete: {n} images in {time.time() - t0:.1f}s ({(time.time() - t0) / n:.1f}s/image avg)")
 
 
-# --- Processing: per-image loop, shape validation, shared mask computation ---
-
-
-def _process_images(image_paths: list[Path], out_dir: Path, fn: Callable[[np.ndarray], tuple[np.ndarray, str]]) -> None:
+def _process_images(
+    image_paths: list[Path], out_dir: Path, input_dir: Path, fn: Callable[[np.ndarray], tuple[np.ndarray, str]]
+) -> None:
     n = len(image_paths)
     for i, p in enumerate(image_paths):
         t0 = time.time()
         result, extra = fn(load_image(p))
-        save_image(result, out_dir / p.name)
+        out_p = out_dir / p.relative_to(input_dir)
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        save_image(result, out_p)
         print(f"  [{i + 1}/{n}] {p.name} ({time.time() - t0:.1f}s{f', {extra}' if extra else ''})")
 
 
@@ -143,9 +98,6 @@ def _collect_shared_mask(
     return shared_mask
 
 
-# --- Public API: called by cli.py ---
-
-
 def detect_batch(
     input_path: Path,
     output_path: Path,
@@ -154,18 +106,14 @@ def detect_batch(
     confidence: float = 0.25,
     memory_mb: int = 1024,
 ) -> None:
-    image_paths, temp_dir = _resolve_inputs(input_path)
-    print(f"  Source: {'cbz' if temp_dir else 'directory'} ({len(image_paths)} images)")
-    try:
-        print(f"  Sample: {sample_n or 'all'}, confidence: {confidence}")
-        mask = _collect_shared_mask(
-            image_paths, detector, sample_n=sample_n, confidence=confidence, memory_mb=memory_mb
-        )
-        save_image(mask, output_path)
-        print(f"Shared mask saved to {output_path}")
-    finally:
-        if temp_dir:
-            shutil.rmtree(temp_dir, ignore_errors=True)
+    image_paths = _get_image_paths(input_path)
+    print(f"  Source: directory ({len(image_paths)} images)")
+    print(f"  Sample: {sample_n or 'all'}, confidence: {confidence}")
+    mask = _collect_shared_mask(
+        image_paths, detector, sample_n=sample_n, confidence=confidence, memory_mb=memory_mb
+    )
+    save_image(mask, output_path)
+    print(f"Shared mask saved to {output_path}")
 
 
 def run_batch(
@@ -187,7 +135,7 @@ def run_batch(
                 pct = mask_ratio(mask := detector.detect(image))
                 return (inpainter.inpaint(image, mask) if pct > 0 else image), f"{pct:.1%} masked"
 
-            _process_images(image_paths, out_dir, _detect_and_inpaint)
+            _process_images(image_paths, out_dir, input_path, _detect_and_inpaint)
             return
 
         shared_mask = _collect_shared_mask(
@@ -200,11 +148,13 @@ def run_batch(
         if mask_ratio(shared_mask) == 0:
             print("  No watermark detected in shared mask. Copying originals.")
             for i, p in enumerate(image_paths):
-                shutil.copy2(p, out_dir / p.name)
+                out_p = out_dir / p.relative_to(input_path)
+                out_p.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(p, out_p)
                 print(f"  [{i + 1}/{len(image_paths)}] {p.name} (copied)")
         else:
             print(f"\n  Inpainting {len(image_paths)} images with shared mask...")
-            _process_images(image_paths, out_dir, lambda img: (inpainter.inpaint(img, shared_mask), ""))
+            _process_images(image_paths, out_dir, input_path, lambda img: (inpainter.inpaint(img, shared_mask), ""))
 
 
 def inpaint_batch(input_path: Path, output_path: Path, mask: np.ndarray, inpainter: Inpainter) -> None:
@@ -212,4 +162,4 @@ def inpaint_batch(input_path: Path, output_path: Path, mask: np.ndarray, inpaint
     if empty:
         print("  Mask is empty — nothing to inpaint.")
     with _timed_batch(input_path, output_path) as (image_paths, out_dir):
-        _process_images(image_paths, out_dir, lambda img: (img if empty else inpainter.inpaint(img, mask), ""))
+        _process_images(image_paths, out_dir, input_path, lambda img: (img if empty else inpainter.inpaint(img, mask), ""))

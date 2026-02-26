@@ -1,40 +1,15 @@
-import argparse
-import shutil
-import sys
-from pathlib import Path
-
-
-class _Formatter(argparse.HelpFormatter):
-    def __init__(self, prog: str):
-        super().__init__(prog, max_help_position=40, width=shutil.get_terminal_size().columns)
-
-    def _format_usage(self, usage, actions, groups, prefix):
-        if prefix is None:
-            prefix = "Usage: "
-        return super()._format_usage(usage, actions, groups, prefix)
-
-    def _format_action(self, action):
-        if isinstance(action, argparse._SubParsersAction):
-            return self._join_parts([self._format_action(a) for a in action._get_subactions()])
-        return super()._format_action(action)
-
-
 def _is_batch(path: Path) -> bool:
     return path.is_dir() or path.suffix.lower() in {".cbz", ".zip"}
 
-
 def _is_cbz(path: Path) -> bool:
     return path.suffix.lower() in {".cbz", ".zip"}
-
 
 def _require_exists(path: Path, label: str = "Input") -> None:
     if not path.exists():
         sys.exit(f"Error: {label} not found: {path}")
 
-
 def _add_help(p: argparse.ArgumentParser) -> None:
     p.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help="Show this help message and exit")
-
 
 def _subparser(sub, name: str, *, desc: str, usage: str) -> argparse.ArgumentParser:
     p = sub.add_parser(name, help=desc, usage=usage, formatter_class=_Formatter, add_help=False)
@@ -43,7 +18,6 @@ def _subparser(sub, name: str, *, desc: str, usage: str) -> argparse.ArgumentPar
     p.add_argument("output", help="Output path")
     p._positionals.title, p._optionals.title = "Arguments", "Options"
     return p
-
 
 def _add_options(p: argparse.ArgumentParser) -> None:
     p.add_argument("--confidence", type=float, default=0.25, help="YOLO detection confidence threshold (default: 0.25)")
@@ -57,24 +31,17 @@ def _add_options(p: argparse.ArgumentParser) -> None:
         "--memory", type=int, default=1024, metavar="MB", help="Memory budget in MB for batch loading (default: 1024)"
     )
 
-
 def _make_detector(confidence: float, padding: int, device: str | None):
     from kiero.detectors.yolo import YoloDetector
-
     return YoloDetector(confidence=confidence, padding=padding, device=device)
-
 
 def _make_inpainter(device: str | None):
     from kiero.inpainters.lama import LamaInpainter
-
     return LamaInpainter(device=device)
-
 
 def _make_pipeline(confidence: float, padding: int, device: str | None):
     from kiero.pipeline import Pipeline
-
     return Pipeline(confidence=confidence, padding=padding, device=device)
-
 
 def main():
     parser = argparse.ArgumentParser(
@@ -103,20 +70,20 @@ def main():
     match args.command:
         case "run":
             _run(
-                input_path=Path(args.input),
-                output_path=Path(args.output),
+                input_path=args.input,
+                output_path=args.output,
                 per_image=args.per_image,
                 sample=args.sample,
                 confidence=args.confidence,
                 padding=args.padding,
                 memory=args.memory,
                 device=args.device,
-                mask_output=Path(args.mask_output) if getattr(args, "mask_output", None) else None,
+                mask_output=args.mask_output,
             )
         case "detect":
             _detect(
-                input_path=Path(args.input),
-                output_path=Path(args.output),
+                input_path=args.input,
+                output_path=args.output,
                 sample=args.sample,
                 confidence=args.confidence,
                 padding=args.padding,
@@ -125,9 +92,9 @@ def main():
             )
         case "inpaint":
             _inpaint(
-                input_path=Path(args.input),
-                output_path=Path(args.output),
-                mask=Path(args.mask),
+                input_path=args.input,
+                output_path=args.output,
+                mask=args.mask,
                 device=args.device,
             )
         case _:
@@ -135,29 +102,29 @@ def main():
 
 
 def _run(
-    input_path: Path,
-    output_path: Path,
+    input_path: str,
+    output_path: str,
     per_image: bool,
     sample: int | None,
     confidence: float,
     padding: int,
     memory: int,
     device: str | None,
-    mask_output: Path | None,
+    mask_output: str | None,
 ):
-    _require_exists(input_path)
-    print(f"Input:  {input_path}\nOutput: {output_path}")
+    inp, out = Path(input_path), Path(output_path)
+    _require_exists(inp)
+    print(f"Input:  {inp}\nOutput: {out}")
 
-    if _is_cbz(input_path):
+    if _is_cbz(inp):
         import shutil
         import tempfile
-
-        from kiero.batch import run_batch
         from kiero.cbz import extract_cbz, write_cbz
-
-        tmp_in = extract_cbz(input_path)
+        from kiero.batch import run_batch
+        
+        tmp_in = extract_cbz(inp)
         tmp_out = Path(tempfile.mkdtemp(prefix="kiero_out_"))
-
+        
         try:
             print(f"Mode: {'per-image' if per_image else 'shared mask'} (Archive)")
             if not per_image:
@@ -171,59 +138,59 @@ def _run(
                 sample_n=sample,
                 confidence=confidence,
                 memory_mb=memory,
-                mask_output=mask_output,
+                mask_output=Path(mask_output) if mask_output else None,
             )
-            write_cbz(tmp_out, output_path)
-            print(f"\n  Archive written to {output_path}")
+            write_cbz(tmp_out, out)
+            print(f"\n  Archive written to {out}")
         finally:
             shutil.rmtree(tmp_in, ignore_errors=True)
             shutil.rmtree(tmp_out, ignore_errors=True)
-
-    elif input_path.is_dir():
+            
+    elif inp.is_dir():
         from kiero.batch import run_batch
 
         print(f"Mode: {'per-image' if per_image else 'shared mask'}")
         if not per_image:
             print(f"Sample: {sample or 'all'}, confidence: {confidence}")
         run_batch(
-            input_path=input_path,
-            output_path=output_path,
+            input_path=inp,
+            output_path=out,
             detector=_make_detector(confidence, padding, device),
             inpainter=_make_inpainter(device),
             per_image=per_image,
             sample_n=sample,
             confidence=confidence,
             memory_mb=memory,
-            mask_output=mask_output,
+            mask_output=Path(mask_output) if mask_output else None,
         )
     else:
-        _make_pipeline(confidence, padding, device).run(input_path, output_path, mask_path=mask_output)
+        _make_pipeline(confidence, padding, device).run(inp, out, mask_path=mask_output)
     print("Done.")
 
 
 def _detect(
-    input_path: Path,
-    output_path: Path,
+    input_path: str,
+    output_path: str,
     sample: int | None,
     confidence: float,
     padding: int,
     memory: int,
     device: str | None,
 ):
-    _require_exists(input_path)
-    print(f"Input:  {input_path}\nOutput: {output_path}")
+    inp, out = Path(input_path), Path(output_path)
+    _require_exists(inp)
+    print(f"Input:  {inp}\nOutput: {out}")
 
-    if _is_cbz(input_path):
+    if _is_cbz(inp):
         import shutil
-
-        from kiero.batch import detect_batch
         from kiero.cbz import extract_cbz
-
-        tmp_in = extract_cbz(input_path)
+        from kiero.batch import detect_batch
+        
+        tmp_in = extract_cbz(inp)
         try:
             detect_batch(
                 input_path=tmp_in,
-                output_path=output_path,
+                output_path=out,
                 detector=_make_detector(confidence, padding, device),
                 sample_n=sample,
                 confidence=confidence,
@@ -231,64 +198,65 @@ def _detect(
             )
         finally:
             shutil.rmtree(tmp_in, ignore_errors=True)
-
-    elif input_path.is_dir():
+            
+    elif inp.is_dir():
         from kiero.batch import detect_batch
 
         detect_batch(
-            input_path=input_path,
-            output_path=output_path,
+            input_path=inp,
+            output_path=out,
             detector=_make_detector(confidence, padding, device),
             sample_n=sample,
             confidence=confidence,
             memory_mb=memory,
         )
-
     else:
-        _make_pipeline(confidence, padding, device).detect(input_path, output_path)
-
+        _make_pipeline(confidence, padding, device).detect(inp, out)
     print("Done.")
 
 
-def _inpaint(input_path: Path, output_path: Path, mask: Path, device: str | None):
-    _require_exists(input_path, "Input")
-    _require_exists(mask, "Mask file")
-    print(f"Input: {input_path}\nMask:  {mask}\nOutput: {output_path}")
+def _inpaint(input_path: str, output_path: str, mask: str, device: str | None):
+    inp, out, mask_path = Path(input_path), Path(output_path), Path(mask)
+    _require_exists(inp, "Input")
+    _require_exists(mask_path, "Mask file")
+    print(f"Input: {inp}\nMask:  {mask_path}\nOutput: {out}")
 
-    if _is_cbz(input_path):
+    if _is_cbz(inp):
         import shutil
         import tempfile
-
-        from kiero.batch import inpaint_batch
         from kiero.cbz import extract_cbz, write_cbz
+        from kiero.batch import inpaint_batch
         from kiero.utils import load_mask
-
-        tmp_in = extract_cbz(input_path)
+        
+        tmp_in = extract_cbz(inp)
         tmp_out = Path(tempfile.mkdtemp(prefix="kiero_out_"))
-
+        
         try:
             inpaint_batch(
                 input_path=tmp_in,
                 output_path=tmp_out,
-                mask=load_mask(mask),
+                mask=load_mask(mask_path),
                 inpainter=_make_inpainter(device),
             )
-            write_cbz(tmp_out, output_path)
-            print(f"\n  Archive written to {output_path}")
+            write_cbz(tmp_out, out)
+            print(f"\n  Archive written to {out}")
         finally:
             shutil.rmtree(tmp_in, ignore_errors=True)
             shutil.rmtree(tmp_out, ignore_errors=True)
-
-    elif input_path.is_dir():
+            
+    elif inp.is_dir():
         from kiero.batch import inpaint_batch
         from kiero.utils import load_mask
 
         inpaint_batch(
-            input_path=input_path,
-            output_path=output_path,
-            mask=load_mask(mask),
+            input_path=inp,
+            output_path=out,
+            mask=load_mask(mask_path),
             inpainter=_make_inpainter(device),
         )
     else:
-        _make_pipeline(0.25, 10, device).inpaint(input_path, output_path, mask)
+        _make_pipeline(0.25, 10, device).inpaint(inp, out, mask_path)
     print("Done.")
+
+if __name__ == "__main__":
+    main()
