@@ -9,14 +9,12 @@ import numpy as np
 
 from kiero.detectors.base import WatermarkDetector
 from kiero.inpainters.base import Inpainter
-from kiero.utils import load_image, mask_ratio, save_image
-
-_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
+from kiero.utils import is_image, load_image, mask_ratio, save_image
 
 
 def _get_image_paths(input_dir: Path) -> list[Path]:
     images = sorted(
-        (p for p in input_dir.rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS),
+        (p for p in input_dir.rglob("*") if p.is_file() and is_image(p)),
         key=lambda p: p.name,
     )
     if not images:
