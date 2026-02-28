@@ -52,7 +52,7 @@ def detect(
             detector=make_detector(confidence, padding, device),
             sample=sample,
             confidence=confidence,
-            memory_mb=memory,
+            memory=memory,
         )
 
     else:
@@ -168,7 +168,7 @@ def run(
             per_image=per_image,
             confidence=confidence,
             padding=padding,
-            memory_mb=memory,
+            memory=memory,
             device=device,
             mask_output=mask_output,
         )

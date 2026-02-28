@@ -17,7 +17,7 @@ def detect_batch(
     detector: WatermarkDetector,
     sample: int | None = None,
     confidence: float = 0.25,
-    memory_mb: int = 1024,
+    memory: int = 1024,
 ) -> np.ndarray:
     image_paths = get_image_paths(input_path)
     print(f"  Source: directory ({len(image_paths)} images)")
@@ -25,10 +25,10 @@ def detect_batch(
 
     sampled = sorted(random.sample(image_paths, sample) if sample and sample < len(image_paths) else image_paths)
 
-    memory_limit = memory_mb * 1024 * 1024
+    memory_limit = memory * 1024 * 1024
     n = len(sampled)
 
-    print(f"  Computing shared mask from {n} images (~{memory_mb}MB per batch)...")
+    print(f"  Computing shared mask from {n} images (~{memory}MB per batch)...")
 
     mask_sum: np.ndarray | None = None
     ref_shape: tuple[int, int] | None = None
@@ -61,7 +61,7 @@ def detect_batch(
             sys.exit(f"Error: {p} has shape {img.shape[:2]}, expected {ref_shape}")
 
         if img.nbytes > memory_limit:
-            sys.exit(f"Error: {p} requires {img.nbytes / (1024**2):.1f}MB, exceeds limit of {memory_mb}MB")
+            sys.exit(f"Error: {p} requires {img.nbytes / (1024**2):.1f}MB, exceeds limit of {memory}MB")
 
         if batch and batch_bytes + img.nbytes > memory_limit:
             flush()
@@ -117,7 +117,7 @@ def run_batch(
     per_image: bool = False,
     confidence: float = 0.25,
     padding: int = 10,
-    memory_mb: int = 1024,
+    memory: int = 1024,
     device: str | None = None,
     mask_output: Path | None = None,
 ) -> None:
@@ -146,7 +146,7 @@ def run_batch(
             output_path=None,
             detector=detector,
             confidence=confidence,
-            memory_mb=memory_mb,
+            memory=memory,
         )
         if mask_output is not None:
             save_image(mask, mask_output)
