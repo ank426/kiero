@@ -6,15 +6,21 @@ from kiero import commands
 
 
 class _Formatter(argparse.HelpFormatter):
-    def __init__(self, prog: str):
+    def __init__(self, prog: str) -> None:
         super().__init__(prog, max_help_position=40, width=shutil.get_terminal_size().columns)
 
-    def _format_usage(self, usage, actions, groups, prefix):
+    def _format_usage(
+        self,
+        usage: str | None,
+        actions: list[argparse.Action],
+        groups: list[argparse._ArgumentGroup | argparse._MutuallyExclusiveGroup],
+        prefix: str | None,
+    ) -> str:
         if prefix is None:
             prefix = "Usage: "
         return super()._format_usage(usage, actions, groups, prefix)
 
-    def _format_action(self, action):
+    def _format_action(self, action: argparse.Action) -> str:
         if isinstance(action, argparse._SubParsersAction):
             return self._join_parts([self._format_action(a) for a in action._get_subactions()])
         return super()._format_action(action)
@@ -46,7 +52,7 @@ def _add_options(p: argparse.ArgumentParser) -> None:
     )
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         prog="kiero", description="Manga watermark detector and remover", formatter_class=_Formatter, add_help=False
     )

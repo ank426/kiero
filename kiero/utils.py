@@ -1,10 +1,16 @@
 import shutil
 import tempfile
 import zipfile
+from typing import TYPE_CHECKING
 from pathlib import Path
 
 import cv2
 import numpy as np
+
+if TYPE_CHECKING:
+    from kiero.detectors.base import WatermarkDetector
+    from kiero.inpainters.base import Inpainter
+    from kiero.pipeline import Pipeline
 
 
 # --- Image I/O & Mask Utilities ---
@@ -90,7 +96,7 @@ def validate(
     output_path: Path | None = None,
     mask_input: Path | None = None,
     mask_output: Path | None = None,
-):
+) -> None:
     require_exists(input_path, "Input")
     if not (is_cbz(input_path) or input_path.is_dir() or is_image(input_path)):
         raise ValueError(f"Input must be a directory, .cbz/.zip or an image file: {input_path}")
@@ -115,19 +121,19 @@ def validate(
 # --- Lazy Component Factories ---
 
 
-def make_detector(confidence: float, padding: int, device: str | None):
+def make_detector(confidence: float, padding: int, device: str | None) -> "WatermarkDetector":
     from kiero.detectors.yolo import YoloDetector
 
     return YoloDetector(confidence=confidence, padding=padding, device=device)
 
 
-def make_inpainter(device: str | None):
+def make_inpainter(device: str | None) -> "Inpainter":
     from kiero.inpainters.lama import LamaInpainter
 
     return LamaInpainter(device=device)
 
 
-def make_pipeline(confidence: float, padding: int, device: str | None):
+def make_pipeline(confidence: float, padding: int, device: str | None) -> "Pipeline":
     from kiero.pipeline import Pipeline
 
     return Pipeline(confidence=confidence, padding=padding, device=device)

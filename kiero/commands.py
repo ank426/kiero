@@ -25,7 +25,7 @@ def run(
     memory: int,
     device: str | None,
     mask_output: Path | None,
-):
+) -> None:
     validate(input_path, output_path, mask_output=mask_output)
 
     if is_cbz(input_path):
@@ -99,7 +99,7 @@ def detect(
     padding: int,
     memory: int,
     device: str | None,
-):
+) -> None:
     validate(input_path, mask_output=output_path)
 
     if is_cbz(input_path):
@@ -135,7 +135,7 @@ def detect(
         print("Done.")
 
 
-def inpaint(input_path: Path, output_path: Path, mask: Path, device: str | None):
+def inpaint(input_path: Path, output_path: Path, mask: Path, device: str | None) -> None:
     validate(input_path, output_path, mask)
 
     if is_cbz(input_path):

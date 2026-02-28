@@ -9,7 +9,7 @@ from kiero.utils import binarize_mask, load_image, load_mask, mask_ratio, save_i
 
 
 class Pipeline:
-    def __init__(self, confidence: float = 0.25, padding: int = 10, device: str | None = None):
+    def __init__(self, confidence: float = 0.25, padding: int = 10, device: str | None = None) -> None:
         self._detector = YoloDetector(confidence=confidence, padding=padding, device=device)
         self._inpainter = LamaInpainter(device=device)
 

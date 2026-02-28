@@ -6,10 +6,10 @@ from kiero.inpainters.base import Inpainter
 
 
 class LamaInpainter(Inpainter):
-    def __init__(self, device: str | None = None, max_dim: int = 2048):
+    def __init__(self, device: str | None = None, max_dim: int = 2048) -> None:
         self._device, self._max_dim, self._model = device, max_dim, None
 
-    def _load_model(self):
+    def _load_model(self) -> None:
         if self._model is not None:
             return
         import torch
