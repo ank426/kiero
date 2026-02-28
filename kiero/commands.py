@@ -124,7 +124,7 @@ def detect(
             input_path=input_path,
             output_path=output_path,
             detector=make_detector(confidence, padding, device),
-            sample_n=sample,
+            sample=sample,
             confidence=confidence,
             memory_mb=memory,
         )

@@ -64,10 +64,6 @@ def write_cbz(input_dir: Path, output_path: Path) -> None:
 # --- Path & Type Validation ---
 
 
-def is_batch(path: Path) -> bool:
-    return path.is_dir() or path.suffix.lower() in {".cbz", ".zip"}
-
-
 def is_cbz(path: Path) -> bool:
     return path.suffix.lower() in {".cbz", ".zip"}
 
@@ -79,6 +75,35 @@ def is_image(path: Path) -> bool:
 def require_exists(path: Path, label: str = "Input") -> None:
     if not path.exists():
         sys.exit(f"Error: {label} not found: {path}")
+
+def validate(
+        command: str,
+        input_path: Path,
+        output_path: Path,
+        *,
+        mask: Path | None = None,
+        mask_output: Path | None = None,
+    ):
+    require_exists(input_path)
+    if not (is_cbz(input_path) or input_path.is_dir() or is_image(input_path)):
+        raise ValueError(f"Input must be a directory, .cbz/.zip or an image file: {input_path}")
+    if command == "detect":
+        if not is_image(output_path):
+            raise ValueError(f"Mask output must be an image file: {output_path}")
+    else:
+        if is_cbz(input_path) or input_path.is_dir():
+            if is_image(output_path):
+                raise ValueError(f"Output must be a directory or .cbz/.zip when input is a batch: {output_path}")
+        else:
+            if not is_image(output_path):
+                raise ValueError(f"Output must be an image file when input is an image: {output_path}")
+    if mask:
+        require_exists(mask, "Mask")
+        if not is_image(mask):
+            raise ValueError(f"Mask must be an image: {mask}")
+    if mask_output and not is_image(mask_output):
+        raise ValueError(f"Mask output must be an image: {mask_output}")
+
 
 
 def validate_run(input_path: Path, output_path: Path, mask_output: Path | None):
