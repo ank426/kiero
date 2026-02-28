@@ -4,7 +4,7 @@ Manga watermark detector and remover. Uses YOLO11x for detection and LaMa for in
 
 ## Install
 
-### Option A: Direct Installation
+### Option A: Direct Installation (Recommended)
 
 Install directly from GitHub (no clone required):
 
