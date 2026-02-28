@@ -13,10 +13,7 @@ from kiero.utils import is_image, load_image, mask_ratio, save_image
 
 
 def _get_image_paths(input_dir: Path) -> list[Path]:
-    images = sorted(
-        (p for p in input_dir.rglob("*") if p.is_file() and is_image(p)),
-        key=lambda p: p.name,
-    )
+    images = sorted(p for p in input_dir.rglob("*") if p.is_file() and is_image(p))
     if not images:
         raise FileNotFoundError(f"No image files found in {input_dir}")
     return images
@@ -42,10 +39,7 @@ def _collect_shared_mask(
     confidence: float = 0.25,
     memory_mb: int = 1024,
 ) -> np.ndarray:
-    if sample is not None and sample < len(image_paths):
-        sampled = sorted(random.sample(image_paths, sample), key=lambda p: p.name)
-    else:
-        sampled, sample = image_paths, len(image_paths)
+    sampled = sorted(random.sample(image_paths, sample) if sample and sample < len(image_paths) else image_paths)
 
     n = len(sampled)
     chunk = max(1, (memory_mb * 1024 * 1024) // load_image(sampled[0]).nbytes)
