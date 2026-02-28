@@ -76,71 +76,37 @@ def require_exists(path: Path, label: str = "Input") -> None:
     if not path.exists():
         sys.exit(f"Error: {label} not found: {path}")
 
+
 def validate(
-        command: str,
-        input_path: Path,
-        output_path: Path,
-        *,
-        mask: Path | None = None,
-        mask_output: Path | None = None,
-    ):
-    require_exists(input_path)
+    command: str,
+    input_path: Path,
+    output_path: Path,
+    *,
+    mask: Path | None = None,
+    mask_output: Path | None = None,
+):
+    require_exists(input_path, "Input")
     if not (is_cbz(input_path) or input_path.is_dir() or is_image(input_path)):
-        raise ValueError(f"Input must be a directory, .cbz/.zip or an image file: {input_path}")
+        sys.exit(f"Error: Input must be a directory, .cbz/.zip or an image file: {input_path}")
+
     if command == "detect":
         if not is_image(output_path):
-            raise ValueError(f"Mask output must be an image file: {output_path}")
+            sys.exit(f"Error: Mask output must be an image file: {output_path}")
     else:
         if is_cbz(input_path) or input_path.is_dir():
             if is_image(output_path):
-                raise ValueError(f"Output must be a directory or .cbz/.zip when input is a batch: {output_path}")
+                sys.exit(f"Error: Output must be a directory or .cbz/.zip when input is a batch: {output_path}")
         else:
             if not is_image(output_path):
-                raise ValueError(f"Output must be an image file when input is an image: {output_path}")
+                sys.exit(f"Error: Output must be an image file when input is an image: {output_path}")
+
     if mask:
-        require_exists(mask, "Mask")
+        require_exists(mask, "Mask file")
         if not is_image(mask):
-            raise ValueError(f"Mask must be an image: {mask}")
-    if mask_output and not is_image(mask_output):
-        raise ValueError(f"Mask output must be an image: {mask_output}")
+            sys.exit(f"Error: Mask must be an image file: {mask}")
 
-
-
-def validate_run(input_path: Path, output_path: Path, mask_output: Path | None):
-    require_exists(input_path)
-    if not (is_cbz(input_path) or input_path.is_dir() or is_image(input_path)):
-        sys.exit(f"Error: Input must be a directory, .cbz/.zip, or an image file: {input_path}")
-    if is_cbz(input_path) or input_path.is_dir():
-        if is_image(output_path):
-            sys.exit(f"Error: Output must be a directory or .cbz/.zip when input is a batch: {output_path}")
-    else:
-        if not is_image(output_path):
-            sys.exit(f"Error: Output must be an image file when input is an image: {output_path}")
     if mask_output and not is_image(mask_output):
         sys.exit(f"Error: Mask output must be an image file: {mask_output}")
-
-
-def validate_detect(input_path: Path, output_path: Path):
-    require_exists(input_path)
-    if not (is_cbz(input_path) or input_path.is_dir() or is_image(input_path)):
-        sys.exit(f"Error: Input must be a directory, .cbz/.zip, or an image file: {input_path}")
-    if not is_image(output_path):
-        sys.exit(f"Error: Mask output must be an image file: {output_path}")
-
-
-def validate_inpaint(input_path: Path, output_path: Path, mask: Path):
-    require_exists(input_path, "Input")
-    require_exists(mask, "Mask file")
-    if not (is_cbz(input_path) or input_path.is_dir() or is_image(input_path)):
-        sys.exit(f"Error: Input must be a directory, .cbz/.zip, or an image file: {input_path}")
-    if not is_image(mask):
-        sys.exit(f"Error: Mask must be an image file: {mask}")
-    if is_cbz(input_path) or input_path.is_dir():
-        if is_image(output_path):
-            sys.exit(f"Error: Output must be a directory or .cbz/.zip when input is a batch: {output_path}")
-    else:
-        if not is_image(output_path):
-            sys.exit(f"Error: Output must be an image file when input is an image: {output_path}")
 
 
 # --- Lazy Component Factories ---

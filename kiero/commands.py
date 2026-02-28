@@ -10,9 +10,7 @@ from kiero.utils import (
     make_detector,
     make_inpainter,
     make_pipeline,
-    validate_detect,
-    validate_inpaint,
-    validate_run,
+    validate,
     write_cbz,
 )
 
@@ -28,7 +26,7 @@ def run(
     device: str | None,
     mask_output: Path | None,
 ):
-    validate_run(input_path, output_path, mask_output)
+    validate("run", input_path, output_path, mask_output=mask_output)
 
     if is_cbz(input_path):
         print(f"Input Archive: {input_path}")
@@ -100,7 +98,7 @@ def detect(
     memory: int,
     device: str | None,
 ):
-    validate_detect(input_path, output_path)
+    validate("detect", input_path, output_path)
 
     if is_cbz(input_path):
         print(f"Input Archive:  {input_path}\nMask Output: {output_path}")
@@ -136,7 +134,7 @@ def detect(
 
 
 def inpaint(input_path: Path, output_path: Path, mask: Path, device: str | None):
-    validate_inpaint(input_path, output_path, mask)
+    validate("inpaint", input_path, output_path, mask=mask)
 
     if is_cbz(input_path):
         print(f"Input Archive: {input_path}")
