@@ -7,7 +7,7 @@ import numpy as np
 
 from kiero.detectors.base import WatermarkDetector
 from kiero.inpainters.base import Inpainter
-from kiero.pipeline import run as run_pipeline
+from kiero.single import run
 from kiero.utils import get_image_paths, load_image, make_detector, make_inpainter, mask_ratio, save_image
 
 
@@ -134,7 +134,7 @@ def run_batch(
             t1 = time.time()
             out_p = output_path / p.relative_to(input_path)
             out_p.parent.mkdir(parents=True, exist_ok=True)
-            run_pipeline(p, out_p, detector=detector, inpainter=inpainter)
+            run(p, out_p, detector=detector, inpainter=inpainter)
             print(f"  [{i + 1}/{n}] {p.name} ({time.time() - t1:.1f}s)")
 
         print(f"\n  Batch complete: {n} images in {time.time() - t0:.1f}s ({(time.time() - t0) / n:.1f}s/image avg)")

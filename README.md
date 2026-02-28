@@ -79,7 +79,7 @@ kiero inpaint -m mask.png input.png result.png
 kiero/
   __init__.py
   cli.py              # argparse CLI
-  pipeline.py         # Single-image orchestration
+  single.py           # Single-image orchestration
   batch.py            # Batch processing (directory/CBZ), shared mask averaging
   utils.py            # Image I/O, mask stats
   detectors/

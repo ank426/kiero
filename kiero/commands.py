@@ -4,9 +4,9 @@ import tempfile
 from pathlib import Path
 
 from kiero.batch import detect_batch, inpaint_batch, run_batch
-from kiero.pipeline import detect as detect_image
-from kiero.pipeline import inpaint as inpaint_image
-from kiero.pipeline import run as run_image
+from kiero.single import detect as detect_image
+from kiero.single import inpaint as inpaint_image
+from kiero.single import run as run_image
 from kiero.utils import (
     extract_cbz,
     is_cbz,
