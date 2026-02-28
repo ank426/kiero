@@ -2,7 +2,6 @@ import os
 import random
 import tempfile
 import time
-from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -17,28 +16,6 @@ def _get_image_paths(input_dir: Path) -> list[Path]:
     if not images:
         raise FileNotFoundError(f"No image files found in {input_dir}")
     return images
-
-
-def _process_images(
-    image_paths: list[Path], out_dir: Path, input_dir: Path, fn: Callable[[np.ndarray], tuple[np.ndarray, str]]
-) -> None:
-    n = len(image_paths)
-    for i, p in enumerate(image_paths):
-        t0 = time.time()
-        result, extra = fn(load_image(p))
-        out_p = out_dir / p.relative_to(input_dir)
-        out_p.parent.mkdir(parents=True, exist_ok=True)
-        save_image(result, out_p)
-        print(f"  [{i + 1}/{n}] {p.name} ({time.time() - t0:.1f}s{f', {extra}' if extra else ''})")
-
-
-def _validate_shapes(images: list[np.ndarray], ref_shape: tuple[int, int] | None) -> tuple[int, int]:
-    shapes = {img.shape[:2] for img in images}
-    if ref_shape is not None:
-        shapes.add(ref_shape)
-    if len(shapes) > 1:
-        raise ValueError(f"Cannot compute shared mask: mixed dimensions {shapes}. Use --per-image mode instead.")
-    return next(iter(shapes))
 
 
 def run_batch(
@@ -183,9 +160,15 @@ def inpaint_batch(input_path: Path, output_path: Path, mask: np.ndarray, inpaint
     if empty:
         print("  Mask is empty — nothing to inpaint.")
 
-    _process_images(
-        image_paths, output_path, input_path, lambda img: (img if empty else inpainter.inpaint(img, mask), "")
-    )
+    n = len(image_paths)
+    for i, p in enumerate(image_paths):
+        t1 = time.time()
+        img = load_image(p)
+        result = img if empty else inpainter.inpaint(img, mask)
+        out_p = output_path / p.relative_to(input_path)
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        save_image(result, out_p)
+        print(f"  [{i + 1}/{n}] {p.name} ({time.time() - t1:.1f}s)")
 
     n = len(image_paths)
     print(f"\n  Batch complete: {n} images in {time.time() - t0:.1f}s ({(time.time() - t0) / n:.1f}s/image avg)")
