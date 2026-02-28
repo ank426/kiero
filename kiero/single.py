@@ -9,7 +9,7 @@ from kiero.utils import binarize_mask, load_image, load_mask, make_detector, mak
 
 
 def detect(
-    image_path: Path,
+    image: np.ndarray | Path,
     output_path: Path | None = None,
     *,
     confidence: float = 0.25,
@@ -17,7 +17,7 @@ def detect(
     device: str | None = None,
     detector: WatermarkDetector | None = None,
 ) -> np.ndarray:
-    image = load_image(image_path)
+    image = load_image(image) if isinstance(image, Path) else image
     detector = detector or make_detector(confidence, padding, device)
     t0 = time.time()
     mask_raw = detector.detect(image)
@@ -31,14 +31,14 @@ def detect(
 
 
 def inpaint(
-    image_path: Path,
+    image: np.ndarray | Path,
     output_path: Path,
     mask: np.ndarray | Path,
     *,
     device: str | None = None,
     inpainter: Inpainter | None = None,
 ) -> None:
-    image = load_image(image_path)
+    image = load_image(image) if isinstance(image, Path) else image
     mask = load_mask(mask) if isinstance(mask, Path) else mask
     inpainter = inpainter or make_inpainter(device)
     t0 = time.time()
@@ -60,9 +60,10 @@ def run(
     detector: WatermarkDetector | None = None,
     inpainter: Inpainter | None = None,
 ) -> None:
+    image = load_image(image_path)
     t0 = time.time()
     mask = detect(
-        image_path,
+        image,
         output_path=mask_path,
         confidence=confidence,
         padding=padding,
@@ -72,11 +73,10 @@ def run(
     det_time = time.time() - t0
     if mask_ratio(mask) == 0:
         print("  No watermark detected, skipping inpainting.")
-        image = load_image(image_path)
         save_image(image, output_path)
         print(f"  Result saved to {output_path}")
         return
     t1 = time.time()
-    inpaint(image_path, output_path, mask, device=device, inpainter=inpainter)
+    inpaint(image, output_path, mask, device=device, inpainter=inpainter)
     inp_time = time.time() - t1
     print(f"  Total: {det_time + inp_time:.1f}s")
