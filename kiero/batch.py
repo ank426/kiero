@@ -12,7 +12,7 @@ from kiero.utils import is_image, load_image, make_pipeline, mask_ratio, save_im
 def _get_image_paths(input_dir: Path) -> list[Path]:
     images = sorted(p for p in input_dir.rglob("*") if p.is_file() and is_image(p))
     if not images:
-        raise FileNotFoundError(f"No image files found in {input_dir}")
+        raise ValueError(f"No image files found in {input_dir}")
     return images
 
 

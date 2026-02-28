@@ -35,6 +35,7 @@ watermark. It averages the masks and applies the shared mask to every image.
 # Save the shared mask for inspection
 kiero run imgs/ clean/ --mask-output shared_mask.png
 
+
 # Per-image mode: detect independently per image (no averaging)
 kiero run imgs/ clean/ --per-image
 ```
@@ -67,6 +68,7 @@ kiero inpaint -m mask.png input.png result.png
 --padding 0          # Pixels to pad detection boxes
 --device cuda        # Force device (default: auto)
 --per-image          # Detect per image instead of shared mask (run only)
+--mask-output PATH   # Save shared mask (run only)
 --sample N           # Sample N images for mask averaging (detect only; default: all)
 --memory MB          # Memory budget for batch loading in MB (run/detect; default: 1024)
 ```
