@@ -69,7 +69,9 @@ def main() -> None:
     parser._positionals.title, parser._optionals.title = "Commands", "Options"
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_run = _subparser(sub, "run", desc="Detect and inpaint (single-image pipeline)", usage="%(prog)s [OPTIONS] input output")
+    p_run = _subparser(
+        sub, "run", desc="Detect and inpaint (single-image pipeline)", usage="%(prog)s [OPTIONS] input output"
+    )
     p_run.add_argument("--mask-output", help="Save detection mask here")
     _add_run_options(p_run)
 
