@@ -21,7 +21,6 @@ def _get_image_paths(input_dir: Path) -> list[Path]:
     return images
 
 
-
 def _process_images(
     image_paths: list[Path], out_dir: Path, input_dir: Path, fn: Callable[[np.ndarray], tuple[np.ndarray, str]]
 ) -> None:
@@ -44,10 +43,6 @@ def _validate_shapes(images: list[np.ndarray], ref_shape: tuple[int, int] | None
     return next(iter(shapes))
 
 
-def _chunk_size(sample_path: Path, memory_mb: int) -> int:
-    return max(1, (memory_mb * 1024 * 1024) // load_image(sample_path).nbytes)
-
-
 def _collect_shared_mask(
     image_paths: list[Path],
     detector: WatermarkDetector,
@@ -60,7 +55,8 @@ def _collect_shared_mask(
     else:
         sampled, sample = image_paths, len(image_paths)
 
-    n, chunk = len(sampled), _chunk_size(sampled[0], memory_mb)
+    n = len(sampled)
+    chunk = max(1, (memory_mb * 1024 * 1024) // load_image(sampled[0]).nbytes)
     print(f"  Computing shared mask from {n} images ({chunk} per batch)...")
 
     mask_sum: np.ndarray | None = None
