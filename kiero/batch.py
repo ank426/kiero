@@ -1,5 +1,4 @@
 import random
-import sys
 import time
 from pathlib import Path
 
@@ -7,14 +6,7 @@ import numpy as np
 
 from kiero.detectors.base import WatermarkDetector
 from kiero.inpainters.base import Inpainter
-from kiero.utils import is_image, load_image, make_pipeline, mask_ratio, save_image
-
-
-def _get_image_paths(input_dir: Path) -> list[Path]:
-    images = sorted(p for p in input_dir.rglob("*") if p.is_file() and is_image(p))
-    if not images:
-        sys.exit(f"Error: No image files found in {input_dir}")
-    return images
+from kiero.utils import get_image_paths, load_image, make_pipeline, mask_ratio, save_image
 
 
 def run_batch(
@@ -31,7 +23,7 @@ def run_batch(
 ) -> None:
     if per_image:
         t0 = time.time()
-        image_paths = _get_image_paths(input_path)
+        image_paths = get_image_paths(input_path)
         output_path.mkdir(parents=True, exist_ok=True)
         print(f"  Source: directory ({len(image_paths)} images)")
         print("\n  Per-image mode: detecting and inpainting each image...")
@@ -74,7 +66,7 @@ def detect_batch(
     confidence: float = 0.25,
     memory_mb: int = 1024,
 ) -> np.ndarray:
-    image_paths = _get_image_paths(input_path)
+    image_paths = get_image_paths(input_path)
     print(f"  Source: directory ({len(image_paths)} images)")
     print(f"  Sample: {sample or 'all'}, confidence: {confidence}")
 
@@ -141,7 +133,7 @@ def detect_batch(
 
 def inpaint_batch(input_path: Path, output_path: Path, mask: np.ndarray, inpainter: Inpainter) -> None:
     t0 = time.time()
-    image_paths = _get_image_paths(input_path)
+    image_paths = get_image_paths(input_path)
     output_path.mkdir(parents=True, exist_ok=True)
     print(f"  Source: directory ({len(image_paths)} images)")
 
