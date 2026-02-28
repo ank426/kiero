@@ -32,6 +32,15 @@ def _process_images(
         print(f"  [{i + 1}/{n}] {p.name} ({time.time() - t0:.1f}s{f', {extra}' if extra else ''})")
 
 
+def _validate_shapes(images: list[np.ndarray], ref_shape: tuple[int, int] | None) -> tuple[int, int]:
+    shapes = {img.shape[:2] for img in images}
+    if ref_shape is not None:
+        shapes.add(ref_shape)
+    if len(shapes) > 1:
+        raise ValueError(f"Cannot compute shared mask: mixed dimensions {shapes}. Use --per-image mode instead.")
+    return next(iter(shapes))
+
+
 def _collect_shared_mask(
     image_paths: list[Path],
     detector: WatermarkDetector,
@@ -41,27 +50,54 @@ def _collect_shared_mask(
 ) -> np.ndarray:
     sampled = sorted(random.sample(image_paths, sample) if sample and sample < len(image_paths) else image_paths)
 
+    memory_limit = memory_mb * 1024 * 1024
     n = len(sampled)
-    chunk = max(1, (memory_mb * 1024 * 1024) // load_image(sampled[0]).nbytes)
-    print(f"  Computing shared mask from {n} images ({chunk} per batch)...")
+
+    print(f"  Computing shared mask from {n} images (~{memory_mb}MB per batch)...")
 
     mask_sum: np.ndarray | None = None
-    ref_shape: tuple[int, int] | None = load_image(sampled[0].shape[:2])
-    det_t0 = time.time()
+    ref_shape: tuple[int, int] | None = None
 
-    for i in range(0, n, chunk):
-        images = [load_image(p) for p in sampled[i : i + chunk]]
-        if images.shape[:2] != ref_shape:
-            raise ValueError(f"Cannot compute shared mask: mixed dimensions {ref_shape, images.shape[:2]}. Use --per-image mode instead.")  # noqa: E501
-        for m in detector.detect_batch(images):
-            m_f = m.astype(np.float32) / 255.0
-            mask_sum = m_f if mask_sum is None else mask_sum + m_f
-        print(f"  Processed {min(i + chunk, n)}/{n} images...")
+    batch: list[np.ndarray] = []
+    batch_bytes = 0
+    processed = 0
+    t0 = time.time()
 
-    det_time = time.time() - det_t0
-    print(f"  Detection done in {det_time:.1f}s ({det_time / n:.2f}s/image)")
-    if mask_sum is None:
-        raise ValueError("No images to process")
+    def flush() -> None:
+        nonlocal mask_sum, processed, batch, batch_bytes
+        if not batch:
+            return
+        k = len(batch)
+        m = detector.detect_batch(batch).astype(np.float32) / 255.0
+        mask_sum = m * k if mask_sum is None else mask_sum + m * k
+        processed += k
+        print(f"  Processed {processed}/{n} images...")
+        batch, batch_bytes = [], 0
+
+    for p in sampled:
+        img = load_image(p)
+
+        if ref_shape is None:
+            ref_shape = img.shape[:2]
+        elif img.shape[:2] != ref_shape:
+            raise ValueError(f"{p} has shape {img.shape[:2]}, expected {ref_shape}")
+
+        if img.nbytes > memory_limit:
+            raise ValueError(
+                f"{p} requires {img.nbytes / (1024**2):.1f}MB, "
+                f"exceeds limit of {memory_mb}MB"
+            )
+
+        if batch and batch_bytes + img.nbytes > memory_limit:
+            flush()
+
+        batch.append(img)
+        batch_bytes += img.nbytes
+
+    flush()
+
+    dt = time.time() - t0
+    print(f"  Detection done in {dt:.1f}s ({dt / n:.2f}s/image)")
 
     shared_mask = ((mask_sum / n) >= confidence).astype(np.uint8) * 255
     print(f"  Shared mask: {mask_ratio(shared_mask):.1%} of image masked")
