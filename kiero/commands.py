@@ -26,7 +26,7 @@ def run(
     device: str | None,
     mask_output: Path | None,
 ):
-    validate("run", input_path, output_path, mask_output=mask_output)
+    validate(input_path, output_path, mask_output=mask_output)
 
     if is_cbz(input_path):
         print(f"Input Archive: {input_path}")
@@ -98,7 +98,7 @@ def detect(
     memory: int,
     device: str | None,
 ):
-    validate("detect", input_path, output_path)
+    validate(input_path, mask_output=output_path)
 
     if is_cbz(input_path):
         print(f"Input Archive:  {input_path}\nMask Output: {output_path}")
@@ -134,7 +134,7 @@ def detect(
 
 
 def inpaint(input_path: Path, output_path: Path, mask: Path, device: str | None):
-    validate("inpaint", input_path, output_path, mask=mask)
+    validate(input_path, output_path, mask)
 
     if is_cbz(input_path):
         print(f"Input Archive: {input_path}")
