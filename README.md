@@ -1,10 +1,10 @@
-# Kiero
+# kiero
 
 Manga watermark detector and remover. Uses YOLO11x for detection and LaMa for inpainting.
 
 ## Install
 
-### Option A: Direct Installation (Recommended)
+### Option A: Direct Installation
 
 Install directly from GitHub (no clone required):
 
@@ -26,6 +26,7 @@ Cached in `~/.cache/huggingface` and `~/.cache/torch`.
 ## Usage
 
 Input can be a **single image**, a **directory of images**, or a **`.cbz` archive**.
+Output format mirrors the input.
 
 ### Run (detect + inpaint)
 
@@ -76,11 +77,67 @@ kiero inpaint -m mask.png input.png result.png
 ### Options
 
 ```
---confidence 0.25    # Detection threshold, also used for mask averaging (0-1)
---padding 0          # Pixels to pad detection boxes
---device cuda        # Force device (default: auto)
---per-image          # Detect per image instead of shared mask (run only)
---mask-output PATH   # Save shared mask (run only)
---sample N           # Sample N images for mask averaging (detect only; default: all)
---memory MB          # Memory budget for batch loading in MB (run/detect; default: 1024)
+> kiero --help
+Usage: kiero [-h] {run,detect,inpaint} ...
+
+Manga watermark detector and remover
+
+Commands:
+  run                   Detect and inpaint (single-image pipeline)
+  detect                Detect watermarks, save mask only
+  inpaint               Inpaint with a provided mask
+
+Options:
+  -h, --help            Show this help message and exit
+```
+
+```
+> kiero run --help
+Usage: kiero run [OPTIONS] input output
+
+Arguments:
+  input                      Image, directory, or .cbz file
+  output                     Output path
+
+Options:
+  -h, --help                 Show this help message and exit
+  --mask-output MASK_OUTPUT  Save detection mask here
+  --confidence CONFIDENCE    YOLO detection confidence threshold (default: 0.25)
+  --padding PADDING          Extra pixels around each detected box (default: 10)
+  --device DEVICE            Device: 'cuda', 'cpu', or auto (default: auto)
+  --per-image                Detect independently per image instead of shared
+                             mask
+  --memory MB                Memory budget in MB for batch loading (default:
+                             1024)
+```
+
+```
+kiero detect --help
+Usage: kiero detect [OPTIONS] input output
+
+Arguments:
+  input                    Image, directory, or .cbz file
+  output                   Output path
+
+Options:
+  -h, --help               Show this help message and exit
+  --confidence CONFIDENCE  YOLO detection confidence threshold (default: 0.25)
+  --padding PADDING        Extra pixels around each detected box (default: 10)
+  --device DEVICE          Device: 'cuda', 'cpu', or auto (default: auto)
+  --sample N               Sample N images for mask averaging (default: all)
+  --memory MB              Memory budget in MB for batch loading (default: 1024)
+```
+
+```
+> kiero inpaint --help
+Usage: kiero inpaint [OPTIONS] -m MASK input output
+
+Arguments:
+  input            Image, directory, or .cbz file
+  output           Output path
+
+Options:
+  -h, --help       Show this help message and exit
+  -m, --mask MASK  Binary mask image
+  --device DEVICE  Device: 'cuda', 'cpu', or auto (default: auto)
 ```
