@@ -9,7 +9,7 @@ import numpy as np
 
 from kiero.detectors.base import WatermarkDetector
 from kiero.inpainters.base import Inpainter
-from kiero.utils import is_image, load_image, mask_ratio, save_image
+from kiero.utils import binarize_mask, is_image, load_image, load_mask, mask_ratio, save_image
 
 
 def _get_image_paths(input_dir: Path) -> list[Path]:
@@ -60,7 +60,8 @@ def run_batch(
         print("\n  Per-image mode: detecting and inpainting each image...")
 
         def _detect_and_inpaint(image: np.ndarray) -> tuple[np.ndarray, str]:
-            pct = mask_ratio(mask := detector.detect(image))
+            mask = binarize_mask(detector.detect(image))
+            pct = mask_ratio(mask)
             return (inpainter.inpaint(image, mask) if pct > 0 else image), f"{pct:.1%} masked"
 
         _process_images(image_paths, output_path, input_path, _detect_and_inpaint)
@@ -86,7 +87,7 @@ def run_batch(
                 confidence=confidence,
                 memory_mb=memory_mb,
             )
-            mask = load_image(mask_path)
+            mask = load_mask(mask_path)
             inpaint_batch(
                 input_path=input_path,
                 output_path=output_path,
@@ -130,7 +131,10 @@ def detect_batch(
         if not batch:
             return
         k = len(batch)
-        m = detector.detect_batch(batch).astype(np.float32) / 255.0
+        m_raw = detector.detect_batch(batch)
+        # Expect a single averaged HxW mask in uint8 or float.
+        m_arr = np.asarray(m_raw, dtype=np.float32)
+        m = m_arr if (m_arr.size and m_arr.max() <= 1.0) else (m_arr / 255.0)
         mask_sum = m * k if mask_sum is None else mask_sum + m * k
         processed += k
         print(f"  Processed {processed}/{n} images...")

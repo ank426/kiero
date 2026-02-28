@@ -34,7 +34,7 @@ class YoloDetector(WatermarkDetector):
                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
                 masks[i, max(0, y1 - pad) : min(h, y2 + pad), max(0, x1 - pad) : min(w, x2 + pad)] = 255
 
-        return masks.mean(axis=0)
+        return masks.astype(np.float32).mean(axis=0)
 
     def detect(self, image: np.ndarray) -> np.ndarray:
         return self._to_mask(self._run(image), *image.shape[:2], 1)
