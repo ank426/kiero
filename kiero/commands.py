@@ -1,4 +1,5 @@
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 
@@ -65,7 +66,7 @@ def run(
 
     elif input_path.is_dir():
         if per_image and mask_output is not None:
-            raise ValueError("Mask output is not supported in per-image mode.")
+            sys.exit("Error: Mask output is not supported in per-image mode.")
         print(f"Input Dir:  {input_path}\nOutput Dir: {output_path}")
         print(f"Mode: {'per-image' if per_image else 'shared mask'}")
         run_batch(

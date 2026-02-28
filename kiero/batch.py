@@ -1,4 +1,5 @@
 import random
+import sys
 import time
 from pathlib import Path
 
@@ -12,7 +13,7 @@ from kiero.utils import is_image, load_image, make_pipeline, mask_ratio, save_im
 def _get_image_paths(input_dir: Path) -> list[Path]:
     images = sorted(p for p in input_dir.rglob("*") if p.is_file() and is_image(p))
     if not images:
-        raise ValueError(f"No image files found in {input_dir}")
+        sys.exit(f"Error: No image files found in {input_dir}")
     return images
 
 
@@ -112,10 +113,10 @@ def detect_batch(
         if ref_shape is None:
             ref_shape = img.shape[:2]
         elif img.shape[:2] != ref_shape:
-            raise ValueError(f"{p} has shape {img.shape[:2]}, expected {ref_shape}")
+            sys.exit(f"Error: {p} has shape {img.shape[:2]}, expected {ref_shape}")
 
         if img.nbytes > memory_limit:
-            raise ValueError(f"{p} requires {img.nbytes / (1024**2):.1f}MB, exceeds limit of {memory_mb}MB")
+            sys.exit(f"Error: {p} requires {img.nbytes / (1024**2):.1f}MB, exceeds limit of {memory_mb}MB")
 
         if batch and batch_bytes + img.nbytes > memory_limit:
             flush()
