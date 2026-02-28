@@ -1,5 +1,6 @@
+import os
 import random
-import shutil
+import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -92,12 +93,11 @@ def run_batch(
     memory_mb: int = 1024,
     mask_output: Path | None = None,
 ) -> None:
-    t0 = time.time()
-    image_paths = _get_image_paths(input_path)
-    output_path.mkdir(parents=True, exist_ok=True)
-    print(f"  Source: directory ({len(image_paths)} images)")
-
     if per_image:
+        t0 = time.time()
+        image_paths = _get_image_paths(input_path)
+        output_path.mkdir(parents=True, exist_ok=True)
+        print(f"  Source: directory ({len(image_paths)} images)")
         print("\n  Per-image mode: detecting and inpainting each image...")
 
         def _detect_and_inpaint(image: np.ndarray) -> tuple[np.ndarray, str]:
@@ -105,29 +105,38 @@ def run_batch(
             return (inpainter.inpaint(image, mask) if pct > 0 else image), f"{pct:.1%} masked"
 
         _process_images(image_paths, output_path, input_path, _detect_and_inpaint)
+
+        n = len(image_paths)
+        print(f"\n  Batch complete: {n} images in {time.time() - t0:.1f}s ({(time.time() - t0) / n:.1f}s/image avg)")
     else:
-        shared_mask = _collect_shared_mask(
-            image_paths, detector, sample=sample_n, confidence=confidence, memory_mb=memory_mb
-        )
-        if mask_output:
-            save_image(shared_mask, mask_output)
-            print(f"  Shared mask saved to {mask_output}")
-
-        if mask_ratio(shared_mask) == 0:
-            print("  No watermark detected in shared mask. Copying originals.")
-            for i, p in enumerate(image_paths):
-                out_p = output_path / p.relative_to(input_path)
-                out_p.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(p, out_p)
-                print(f"  [{i + 1}/{len(image_paths)}] {p.name} (copied)")
+        if mask_output is not None:
+            mask_path = mask_output
+            cleanup = False
         else:
-            print(f"\n  Inpainting {len(image_paths)} images with shared mask...")
-            _process_images(
-                image_paths, output_path, input_path, lambda img: (inpainter.inpaint(img, shared_mask), "")
-            )
+            f = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+            f.close()
+            mask_path = Path(f.name)
+            cleanup = True
 
-    n = len(image_paths)
-    print(f"\n  Batch complete: {n} images in {time.time() - t0:.1f}s ({(time.time() - t0) / n:.1f}s/image avg)")
+        try:
+            detect_batch(
+                input_path=input_path,
+                output_path=mask_path,
+                detector=detector,
+                sample=sample_n,
+                confidence=confidence,
+                memory_mb=memory_mb,
+            )
+            mask = load_image(mask_path)
+            inpaint_batch(
+                input_path=input_path,
+                output_path=output_path,
+                mask=mask,
+                inpainter=inpainter,
+            )
+        finally:
+            if cleanup and mask_path.exists():
+                os.remove(mask_path)
 
 
 def detect_batch(
