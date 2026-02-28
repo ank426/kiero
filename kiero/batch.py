@@ -35,15 +35,6 @@ def _process_images(
         print(f"  [{i + 1}/{n}] {p.name} ({time.time() - t0:.1f}s{f', {extra}' if extra else ''})")
 
 
-def _validate_shapes(images: list[np.ndarray], ref_shape: tuple[int, int] | None) -> tuple[int, int]:
-    shapes = {img.shape[:2] for img in images}
-    if ref_shape is not None:
-        shapes.add(ref_shape)
-    if len(shapes) > 1:
-        raise ValueError(f"Cannot compute shared mask: mixed dimensions {shapes}. Use --per-image mode instead.")
-    return next(iter(shapes))
-
-
 def _collect_shared_mask(
     image_paths: list[Path],
     detector: WatermarkDetector,
@@ -61,12 +52,13 @@ def _collect_shared_mask(
     print(f"  Computing shared mask from {n} images ({chunk} per batch)...")
 
     mask_sum: np.ndarray | None = None
-    ref_shape: tuple[int, int] | None = None
+    ref_shape: tuple[int, int] | None = load_image(sampled[0].shape[:2])
     det_t0 = time.time()
 
     for i in range(0, n, chunk):
         images = [load_image(p) for p in sampled[i : i + chunk]]
-        ref_shape = _validate_shapes(images, ref_shape)
+        if images.shape[:2] != ref_shape:
+            raise ValueError(f"Cannot compute shared mask: mixed dimensions {ref_shape, images.shape[:2]}. Use --per-image mode instead.")  # noqa: E501
         for m in detector.detect_batch(images):
             m_f = m.astype(np.float32) / 255.0
             mask_sum = m_f if mask_sum is None else mask_sum + m_f
