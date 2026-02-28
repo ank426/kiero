@@ -11,7 +11,6 @@ import numpy as np
 if TYPE_CHECKING:
     from kiero.detectors.base import WatermarkDetector
     from kiero.inpainters.base import Inpainter
-    from kiero.pipeline import Pipeline
 
 
 # --- Image I/O & Mask Utilities ---
@@ -144,8 +143,3 @@ def make_inpainter(device: str | None) -> "Inpainter":
 
     return LamaInpainter(device=device)
 
-
-def make_pipeline(confidence: float, padding: int, device: str | None) -> "Pipeline":
-    from kiero.pipeline import Pipeline
-
-    return Pipeline(confidence=confidence, padding=padding, device=device)

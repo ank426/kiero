@@ -1,4 +1,5 @@
 import random
+import sys
 import time
 from pathlib import Path
 
@@ -6,56 +7,8 @@ import numpy as np
 
 from kiero.detectors.base import WatermarkDetector
 from kiero.inpainters.base import Inpainter
-from kiero.utils import get_image_paths, load_image, make_pipeline, mask_ratio, save_image
-
-
-def run_batch(
-    input_path: Path,
-    output_path: Path,
-    detector: WatermarkDetector,
-    inpainter: Inpainter,
-    per_image: bool = False,
-    confidence: float = 0.25,
-    padding: int = 10,
-    memory_mb: int = 1024,
-    device: str | None = None,
-    mask_output: Path | None = None,
-) -> None:
-    if per_image:
-        t0 = time.time()
-        image_paths = get_image_paths(input_path)
-        output_path.mkdir(parents=True, exist_ok=True)
-        print(f"  Source: directory ({len(image_paths)} images)")
-        print("\n  Per-image mode: detecting and inpainting each image...")
-
-        pipeline = make_pipeline(confidence, padding=padding, device=device)
-        n = len(image_paths)
-        for i, p in enumerate(image_paths):
-            t1 = time.time()
-            out_p = output_path / p.relative_to(input_path)
-            out_p.parent.mkdir(parents=True, exist_ok=True)
-            pipeline.run(p, out_p)
-            print(f"  [{i + 1}/{n}] {p.name} ({time.time() - t1:.1f}s)")
-
-        print(f"\n  Batch complete: {n} images in {time.time() - t0:.1f}s ({(time.time() - t0) / n:.1f}s/image avg)")
-
-    else:
-        mask = detect_batch(
-            input_path=input_path,
-            output_path=None,
-            detector=detector,
-            confidence=confidence,
-            memory_mb=memory_mb,
-        )
-        if mask_output is not None:
-            save_image(mask, mask_output)
-            print(f"  Shared mask saved to {mask_output}")
-        inpaint_batch(
-            input_path=input_path,
-            output_path=output_path,
-            mask=mask,
-            inpainter=inpainter,
-        )
+from kiero.pipeline import run as run_pipeline
+from kiero.utils import get_image_paths, load_image, make_detector, make_inpainter, mask_ratio, save_image
 
 
 def detect_batch(
@@ -153,3 +106,53 @@ def inpaint_batch(input_path: Path, output_path: Path, mask: np.ndarray, inpaint
 
     n = len(image_paths)
     print(f"\n  Batch complete: {n} images in {time.time() - t0:.1f}s ({(time.time() - t0) / n:.1f}s/image avg)")
+
+
+def run_batch(
+    input_path: Path,
+    output_path: Path,
+    detector: WatermarkDetector,
+    inpainter: Inpainter,
+    per_image: bool = False,
+    confidence: float = 0.25,
+    padding: int = 10,
+    memory_mb: int = 1024,
+    device: str | None = None,
+    mask_output: Path | None = None,
+) -> None:
+    if per_image:
+        t0 = time.time()
+        image_paths = get_image_paths(input_path)
+        output_path.mkdir(parents=True, exist_ok=True)
+        print(f"  Source: directory ({len(image_paths)} images)")
+        print("\n  Per-image mode: detecting and inpainting each image...")
+
+        detector = make_detector(confidence, padding, device)
+        inpainter = make_inpainter(device)
+        n = len(image_paths)
+        for i, p in enumerate(image_paths):
+            t1 = time.time()
+            out_p = output_path / p.relative_to(input_path)
+            out_p.parent.mkdir(parents=True, exist_ok=True)
+            run_pipeline(p, out_p, detector=detector, inpainter=inpainter)
+            print(f"  [{i + 1}/{n}] {p.name} ({time.time() - t1:.1f}s)")
+
+        print(f"\n  Batch complete: {n} images in {time.time() - t0:.1f}s ({(time.time() - t0) / n:.1f}s/image avg)")
+
+    else:
+        mask = detect_batch(
+            input_path=input_path,
+            output_path=None,
+            detector=detector,
+            confidence=confidence,
+            memory_mb=memory_mb,
+        )
+        if mask_output is not None:
+            save_image(mask, mask_output)
+            print(f"  Shared mask saved to {mask_output}")
+        inpaint_batch(
+            input_path=input_path,
+            output_path=output_path,
+            mask=mask,
+            inpainter=inpainter,
+        )
