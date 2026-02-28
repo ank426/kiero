@@ -128,8 +128,8 @@ def run_batch(
         print(f"  Source: directory ({len(image_paths)} images)")
         print("\n  Per-image mode: detecting and inpainting each image...")
 
-        detector = make_detector(confidence, padding, device)
-        inpainter = make_inpainter(device)
+        detector = detector or make_detector(confidence, padding, device)
+        inpainter = inpainter or make_inpainter(device)
         n = len(image_paths)
         for i, p in enumerate(image_paths):
             t1 = time.time()
