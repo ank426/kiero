@@ -8,7 +8,7 @@ import numpy as np
 from kiero.detectors.base import WatermarkDetector
 from kiero.inpainters.base import Inpainter
 from kiero.single import run
-from kiero.utils import get_image_paths, load_image, load_mask, make_detector, make_inpainter, mask_ratio, save_image
+from kiero.utils import get_image_paths, load_image, load_mask, mask_ratio, save_image
 
 
 def detect_batch(
@@ -128,8 +128,6 @@ def run_batch(
         print(f"  Source: directory ({len(image_paths)} images)")
         print("\n  Per-image mode: detecting and inpainting each image...")
 
-        detector = detector or make_detector(confidence, padding, device)
-        inpainter = inpainter or make_inpainter(device)
         n = len(image_paths)
         for i, p in enumerate(image_paths):
             t1 = time.time()
