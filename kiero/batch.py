@@ -9,7 +9,7 @@ import numpy as np
 
 from kiero.detectors.base import WatermarkDetector
 from kiero.inpainters.base import Inpainter
-from kiero.utils import binarize_mask, is_image, load_image, load_mask, mask_ratio, save_image
+from kiero.utils import is_image, load_image, load_mask, make_pipeline, mask_ratio, save_image
 
 
 def _get_image_paths(input_dir: Path) -> list[Path]:
@@ -49,7 +49,9 @@ def run_batch(
     per_image: bool = False,
     sample_n: int | None = None,
     confidence: float = 0.25,
+    padding: int = 10,
     memory_mb: int = 1024,
+    device: str | None = None,
     mask_output: Path | None = None,
 ) -> None:
     if per_image:
@@ -59,15 +61,17 @@ def run_batch(
         print(f"  Source: directory ({len(image_paths)} images)")
         print("\n  Per-image mode: detecting and inpainting each image...")
 
-        def _detect_and_inpaint(image: np.ndarray) -> tuple[np.ndarray, str]:
-            mask = binarize_mask(detector.detect(image))
-            pct = mask_ratio(mask)
-            return (inpainter.inpaint(image, mask) if pct > 0 else image), f"{pct:.1%} masked"
-
-        _process_images(image_paths, output_path, input_path, _detect_and_inpaint)
-
+        pipeline = make_pipeline(confidence, padding=padding, device=device)
         n = len(image_paths)
+        for i, p in enumerate(image_paths):
+            t1 = time.time()
+            out_p = output_path / p.relative_to(input_path)
+            out_p.parent.mkdir(parents=True, exist_ok=True)
+            pipeline.run(p, out_p)
+            print(f"  [{i + 1}/{n}] {p.name} ({time.time() - t1:.1f}s)")
+
         print(f"\n  Batch complete: {n} images in {time.time() - t0:.1f}s ({(time.time() - t0) / n:.1f}s/image avg)")
+
     else:
         if mask_output is not None:
             mask_path = mask_output

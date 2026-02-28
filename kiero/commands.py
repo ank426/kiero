@@ -79,7 +79,9 @@ def run(
             per_image=per_image,
             sample_n=sample,
             confidence=confidence,
+            padding=padding,
             memory_mb=memory,
+            device=device,
             mask_output=mask_output,
         )
 
