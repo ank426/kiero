@@ -39,11 +39,20 @@ def _subparser(sub, name: str, *, desc: str, usage: str) -> argparse.ArgumentPar
     return p
 
 
-def _add_options(p: argparse.ArgumentParser) -> None:
+def _add_run_options(p: argparse.ArgumentParser) -> None:
     p.add_argument("--confidence", type=float, default=0.25, help="YOLO detection confidence threshold (default: 0.25)")
     p.add_argument("--padding", type=int, default=10, help="Extra pixels around each detected box (default: 10)")
     p.add_argument("--device", default=None, help="Device: 'cuda', 'cpu', or auto (default: auto)")
     p.add_argument("--per-image", action="store_true", help="Detect independently per image instead of shared mask")
+    p.add_argument(
+        "--memory", type=int, default=1024, metavar="MB", help="Memory budget in MB for batch loading (default: 1024)"
+    )
+
+
+def _add_detect_options(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--confidence", type=float, default=0.25, help="YOLO detection confidence threshold (default: 0.25)")
+    p.add_argument("--padding", type=int, default=10, help="Extra pixels around each detected box (default: 10)")
+    p.add_argument("--device", default=None, help="Device: 'cuda', 'cpu', or auto (default: auto)")
     p.add_argument(
         "--sample", type=int, default=None, metavar="N", help="Sample N images for mask averaging (default: all)"
     )
@@ -62,11 +71,12 @@ def main() -> None:
 
     p_run = _subparser(sub, "run", desc="Detect and inpaint (full pipeline)", usage="%(prog)s [OPTIONS] input output")
     p_run.add_argument("--mask-output", help="Save detection mask here")
-    _add_options(p_run)
+    _add_run_options(p_run)
 
-    _add_options(
-        _subparser(sub, "detect", desc="Detect watermarks, save mask only", usage="%(prog)s [OPTIONS] input output")
+    p_detect = _subparser(
+        sub, "detect", desc="Detect watermarks, save mask only", usage="%(prog)s [OPTIONS] input output"
     )
+    _add_detect_options(p_detect)
 
     p_inp = _subparser(
         sub, "inpaint", desc="Inpaint with a provided mask", usage="%(prog)s [OPTIONS] -m MASK input output"
@@ -82,7 +92,6 @@ def main() -> None:
                 input_path=Path(args.input),
                 output_path=Path(args.output),
                 per_image=args.per_image,
-                sample=args.sample,
                 confidence=args.confidence,
                 padding=args.padding,
                 memory=args.memory,

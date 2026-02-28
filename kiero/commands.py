@@ -19,7 +19,6 @@ def run(
     input_path: Path,
     output_path: Path,
     per_image: bool,
-    sample: int | None,
     confidence: float,
     padding: int,
     memory: int,
@@ -36,7 +35,6 @@ def run(
                 input_path=tmp_in,
                 output_path=output_path,
                 per_image=per_image,
-                sample=sample,
                 confidence=confidence,
                 padding=padding,
                 memory=memory,
@@ -54,7 +52,6 @@ def run(
                 input_path=input_path,
                 output_path=tmp_out,
                 per_image=per_image,
-                sample=sample,
                 confidence=confidence,
                 padding=padding,
                 memory=memory,
@@ -69,15 +66,12 @@ def run(
     elif input_path.is_dir():
         print(f"Input Dir:  {input_path}\nOutput Dir: {output_path}")
         print(f"Mode: {'per-image' if per_image else 'shared mask'}")
-        if not per_image:
-            print(f"Sample: {sample or 'all'}, confidence: {confidence}")
         run_batch(
             input_path=input_path,
             output_path=output_path,
             detector=make_detector(confidence, padding, device),
             inpainter=make_inpainter(device),
             per_image=per_image,
-            sample_n=sample,
             confidence=confidence,
             padding=padding,
             memory_mb=memory,

@@ -29,15 +29,11 @@ kiero run manga.cbz manga_clean.cbz
 ### Batch mode
 
 When processing a directory or CBZ, kiero assumes all images share the same
-watermark. It samples images, averages the masks, and applies the shared mask
-to every image.
+watermark. It averages the masks and applies the shared mask to every image.
 
 ```bash
-# Sample 10 images for mask averaging
-kiero run imgs/ clean/ --sample 10
-
 # Save the shared mask for inspection
-kiero run imgs/ clean/ --sample 10 --mask-output shared_mask.png
+kiero run imgs/ clean/ --mask-output shared_mask.png
 
 # Per-image mode: detect independently per image (no averaging)
 kiero run imgs/ clean/ --per-image
@@ -46,7 +42,7 @@ kiero run imgs/ clean/ --per-image
 Memory budget controls how many images are loaded and sent to the GPU at once:
 
 ```bash
-kiero run imgs/ clean/ --sample 20 --memory 2048
+kiero run imgs/ clean/ --memory 2048
 ```
 
 ### Detection only
@@ -70,9 +66,9 @@ kiero inpaint -m mask.png input.png result.png
 --confidence 0.25    # Detection threshold, also used for mask averaging (0-1)
 --padding 0          # Pixels to pad detection boxes
 --device cuda        # Force device (default: auto)
---per-image          # Detect per image instead of shared mask
---sample N           # Sample N images for mask averaging (default: all)
---memory MB          # Memory budget for batch loading in MB (default: 1024)
+--per-image          # Detect per image instead of shared mask (run only)
+--sample N           # Sample N images for mask averaging (detect only; default: all)
+--memory MB          # Memory budget for batch loading in MB (run/detect; default: 1024)
 ```
 
 ## Project structure

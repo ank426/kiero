@@ -22,7 +22,6 @@ def run_batch(
     detector: WatermarkDetector,
     inpainter: Inpainter,
     per_image: bool = False,
-    sample: int | None = None,
     confidence: float = 0.25,
     padding: int = 10,
     memory_mb: int = 1024,
@@ -52,7 +51,6 @@ def run_batch(
             input_path=input_path,
             output_path=None,
             detector=detector,
-            sample=sample,
             confidence=confidence,
             memory_mb=memory_mb,
         )
