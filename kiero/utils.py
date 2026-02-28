@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from kiero.inpainters.base import Inpainter
 
 
-# --- Image I/O & Mask Utilities ---
+# --- Image I/O ---
 
 
 def load_image(path: str | Path) -> np.ndarray:
@@ -30,6 +30,20 @@ def save_image(img: np.ndarray, path: str | Path) -> None:
     if not success:
         raise ValueError(f"Failed to encode image: {path}")
     buffer.tofile(str(path))
+
+
+def get_image_paths(input_path: Path) -> list[Path]:
+    if input_path.is_file():
+        if not is_image(input_path):
+            sys.exit(f"Error: Input must be an image file: {input_path}")
+        return [input_path]
+    images = sorted(p for p in input_path.rglob("*") if p.is_file() and is_image(p))
+    if not images:
+        sys.exit(f"Error: No image files found in {input_path}")
+    return images
+
+
+# --- Mask Utilities ---
 
 
 def load_mask(path: str | Path) -> np.ndarray:
@@ -51,17 +65,6 @@ def binarize_mask(mask: np.ndarray) -> np.ndarray:
     mx = float(m.max())
     thr = 0.5 if mx <= 1.0 else 128.0
     return (m >= thr).astype(np.uint8) * 255
-
-
-def get_image_paths(input_path: Path) -> list[Path]:
-    if input_path.is_file():
-        if not is_image(input_path):
-            sys.exit(f"Error: Input must be an image file: {input_path}")
-        return [input_path]
-    images = sorted(p for p in input_path.rglob("*") if p.is_file() and is_image(p))
-    if not images:
-        sys.exit(f"Error: No image files found in {input_path}")
-    return images
 
 
 # --- Archive Handling (CBZ/ZIP) ---
@@ -142,4 +145,3 @@ def make_inpainter(device: str | None) -> "Inpainter":
     from kiero.inpainters.lama import LamaInpainter
 
     return LamaInpainter(device=device)
-
