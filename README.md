@@ -1,4 +1,4 @@
-# kiero
+# Kiero
 
 Manga watermark detector and remover. Uses YOLO11x for detection and LaMa for inpainting.
 
