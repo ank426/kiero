@@ -26,7 +26,6 @@ Cached in `~/.cache/huggingface` and `~/.cache/torch`.
 ## Usage
 
 Input can be a **single image**, a **directory of images**, or a **`.cbz` archive**.
-Output format mirrors the input.
 
 ### Run (detect + inpaint)
 
