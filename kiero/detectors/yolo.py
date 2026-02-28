@@ -23,21 +23,23 @@ class YoloDetector(WatermarkDetector):
         assert self._model is not None
         return self._model(source, conf=self._confidence, device=self._device, verbose=False)
 
-    def _to_mask(self, result, h: int, w: int) -> np.ndarray:
-        mask = np.zeros((h, w), dtype=np.uint8)
-        if result.boxes is None:
-            return mask
+    def _to_mask(self, results, h: int, w: int, n: int) -> np.ndarray:
+        masks = np.zeros((n, h, w), dtype=np.uint8)
         pad = self._padding
-        for box in result.boxes:
-            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
-            mask[max(0, y1 - pad) : min(h, y2 + pad), max(0, x1 - pad) : min(w, x2 + pad)] = 255
-        return mask
+
+        for i, result in enumerate(results):
+            if result.boxes is None:
+                continue
+            for box in result.boxes:
+                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
+                masks[i, max(0, y1 - pad) : min(h, y2 + pad), max(0, x1 - pad) : min(w, x2 + pad)] = 255
+
+        return masks
 
     def detect(self, image: np.ndarray) -> np.ndarray:
-        h, w = image.shape[:2]
-        return self._to_mask(self._run(image)[0], h, w)
+        return self._to_mask(self._run(image), *image.shape[:2], 1)[0]
 
-    def detect_batch(self, images: list[np.ndarray]) -> list[np.ndarray]:
+    def detect_batch(self, images: list[np.ndarray]) -> np.ndarray:
         if not images:
-            return []
-        return [self._to_mask(r, img.shape[0], img.shape[1]) for img, r in zip(images, self._run(images))]
+            return np.array([])
+        return self._to_mask(self._run(images), *images[0].shape[:2], len(images))
