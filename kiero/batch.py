@@ -145,10 +145,7 @@ def detect_batch(
             raise ValueError(f"{p} has shape {img.shape[:2]}, expected {ref_shape}")
 
         if img.nbytes > memory_limit:
-            raise ValueError(
-                f"{p} requires {img.nbytes / (1024**2):.1f}MB, "
-                f"exceeds limit of {memory_mb}MB"
-            )
+            raise ValueError(f"{p} requires {img.nbytes / (1024**2):.1f}MB, exceeds limit of {memory_mb}MB")
 
         if batch and batch_bytes + img.nbytes > memory_limit:
             flush()
