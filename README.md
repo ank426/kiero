@@ -57,6 +57,10 @@ kiero run imgs/ clean/ --memory 2048
 
 Generates a mask (white = watermark, black = clean).
 
+> [!NOTE]
+> Detection on a single image is less reliable; accuracy improves significantly
+> when masks are averaged across many pages (e.g., a full chapter or volume).
+
 ```bash
 kiero detect input.png mask.png
 kiero detect imgs/ shared_mask.png --sample 10
