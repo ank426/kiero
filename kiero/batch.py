@@ -170,7 +170,7 @@ def detect_batch(
     print(f"  Shared mask: {mask_ratio(shared_mask):.1%} of image masked")
 
     save_image(shared_mask, output_path)
-    print(f"Shared mask saved to {output_path}")
+    print(f"  Shared mask saved to {output_path}")
 
 
 def inpaint_batch(input_path: Path, output_path: Path, mask: np.ndarray, inpainter: Inpainter) -> None:

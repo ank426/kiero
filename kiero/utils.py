@@ -1,5 +1,4 @@
 import shutil
-import sys
 import tempfile
 import zipfile
 from pathlib import Path
@@ -83,7 +82,7 @@ def is_image(path: Path) -> bool:
 
 def require_exists(path: Path, label: str = "Input") -> None:
     if not path.exists():
-        sys.exit(f"Error: {label} not found: {path}")
+        raise ValueError(f"{label} not found: {path}")
 
 
 def validate(
@@ -94,23 +93,23 @@ def validate(
 ):
     require_exists(input_path, "Input")
     if not (is_cbz(input_path) or input_path.is_dir() or is_image(input_path)):
-        sys.exit(f"Error: Input must be a directory, .cbz/.zip or an image file: {input_path}")
+        raise ValueError(f"Input must be a directory, .cbz/.zip or an image file: {input_path}")
 
     if output_path:
         if is_cbz(input_path) or input_path.is_dir():
             if is_image(output_path):
-                sys.exit(f"Error: Output must be a directory or .cbz/.zip when input is a batch: {output_path}")
+                raise ValueError(f"Output must be a directory or .cbz/.zip when input is a batch: {output_path}")
         else:
             if not is_image(output_path):
-                sys.exit(f"Error: Output must be an image file when input is an image: {output_path}")
+                raise ValueError(f"Output must be an image file when input is an image: {output_path}")
 
     if mask_input:
         require_exists(mask_input, "Mask file")
         if not is_image(mask_input):
-            sys.exit(f"Error: Mask must be an image file: {mask_input}")
+            raise ValueError(f"Mask must be an image file: {mask_input}")
 
     if mask_output and not is_image(mask_output):
-        sys.exit(f"Error: Mask output must be an image file: {mask_output}")
+        raise ValueError(f"Mask output must be an image file: {mask_output}")
 
 
 # --- Lazy Component Factories ---
