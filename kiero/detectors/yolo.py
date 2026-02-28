@@ -6,10 +6,9 @@ from kiero.detectors.base import WatermarkDetector
 if TYPE_CHECKING:
     from ultralytics.engine.results import Results
 
-_MODEL_REPO = "corzent/yolo11x_watermark_detection"
-
-
 class YoloDetector(WatermarkDetector):
+    _MODEL_REPO = "corzent/yolo11x_watermark_detection"
+
     def __init__(self, confidence: float = 0.25, padding: int = 10, device: str | None = None) -> None:
         self._confidence, self._padding, self._device = confidence, padding, device
         self._model = None
@@ -20,7 +19,7 @@ class YoloDetector(WatermarkDetector):
         from ultralytics import YOLO  # pyright: ignore[reportPrivateImportUsage]
         from huggingface_hub import hf_hub_download
 
-        self._model = YOLO(hf_hub_download(repo_id=_MODEL_REPO, filename="best.pt"))
+        self._model = YOLO(hf_hub_download(repo_id=self._MODEL_REPO, filename="best.pt"))
 
     def _run(self, source: np.ndarray | list[np.ndarray]) -> list["Results"]:
         self._load_model()
