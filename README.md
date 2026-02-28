@@ -105,10 +105,8 @@ Options:
   --confidence CONFIDENCE    YOLO detection confidence threshold (default: 0.25)
   --padding PADDING          Extra pixels around each detected box (default: 10)
   --device DEVICE            Device: 'cuda', 'cpu', or auto (default: auto)
-  --per-image                Detect independently per image instead of shared
-                             mask
-  --memory MB                Memory budget in MB for batch loading (default:
-                             1024)
+  --per-image                Detect independently per image instead of shared mask
+  --memory MB                Memory budget in MB for batch loading (default: 1024)
 ```
 
 ```
