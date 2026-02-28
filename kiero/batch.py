@@ -141,7 +141,6 @@ def detect_batch(
 
         if ref_shape is None:
             ref_shape = img.shape[:2]
-            mask_sum = np.zeros(ref_shape, dtype=np.float32)
         elif img.shape[:2] != ref_shape:
             raise ValueError(f"{p} has shape {img.shape[:2]}, expected {ref_shape}")
 
