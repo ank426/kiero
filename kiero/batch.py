@@ -8,7 +8,7 @@ import numpy as np
 from kiero.detectors.base import WatermarkDetector
 from kiero.inpainters.base import Inpainter
 from kiero.single import run
-from kiero.utils import get_image_paths, load_image, make_detector, make_inpainter, mask_ratio, save_image
+from kiero.utils import get_image_paths, load_image, load_mask, make_detector, make_inpainter, mask_ratio, save_image
 
 
 def detect_batch(
@@ -84,8 +84,9 @@ def detect_batch(
     return shared_mask
 
 
-def inpaint_batch(input_path: Path, output_path: Path, mask: np.ndarray, inpainter: Inpainter) -> None:
+def inpaint_batch(input_path: Path, output_path: Path, mask: np.ndarray | Path, inpainter: Inpainter) -> None:
     t0 = time.time()
+    mask = load_mask(mask) if isinstance(mask, Path) else mask
     image_paths = get_image_paths(input_path)
     output_path.mkdir(parents=True, exist_ok=True)
     print(f"  Source: directory ({len(image_paths)} images)")

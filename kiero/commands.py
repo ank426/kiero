@@ -10,7 +10,6 @@ from kiero.single import run as run_image
 from kiero.utils import (
     extract_cbz,
     is_cbz,
-    load_mask,
     make_detector,
     make_inpainter,
     validate,
@@ -98,7 +97,7 @@ def inpaint(input_path: Path, output_path: Path, mask: Path, device: str | None)
         inpaint_batch(
             input_path=input_path,
             output_path=output_path,
-            mask=load_mask(mask),
+            mask=mask,
             inpainter=make_inpainter(device),
         )
 
