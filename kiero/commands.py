@@ -7,14 +7,7 @@ from kiero.batch import detect_batch, inpaint_batch, run_batch
 from kiero.single import detect as detect_image
 from kiero.single import inpaint as inpaint_image
 from kiero.single import run as run_image
-from kiero.utils import (
-    extract_cbz,
-    is_cbz,
-    make_detector,
-    make_inpainter,
-    validate,
-    write_cbz,
-)
+from kiero.utils import extract_cbz, is_cbz, make_detector, make_inpainter, validate, write_cbz
 
 
 def detect(
@@ -68,12 +61,7 @@ def inpaint(input_path: Path, output_path: Path, mask: Path, device: str | None)
         print(f"Input Archive: {input_path}")
         tmp_in = extract_cbz(input_path)
         try:
-            inpaint(
-                input_path=tmp_in,
-                output_path=output_path,
-                mask=mask,
-                device=device,
-            )
+            inpaint(input_path=tmp_in, output_path=output_path, mask=mask, device=device)
         finally:
             shutil.rmtree(tmp_in, ignore_errors=True)
 
@@ -81,12 +69,7 @@ def inpaint(input_path: Path, output_path: Path, mask: Path, device: str | None)
         print(f"Output Archive: {output_path}")
         tmp_out = Path(tempfile.mkdtemp(prefix="kiero_out_"))
         try:
-            inpaint(
-                input_path=input_path,
-                output_path=tmp_out,
-                mask=mask,
-                device=device,
-            )
+            inpaint(input_path=input_path, output_path=tmp_out, mask=mask, device=device)
             write_cbz(tmp_out, output_path)
             print(f"\n  Archive written to {output_path}")
         finally:
@@ -94,12 +77,7 @@ def inpaint(input_path: Path, output_path: Path, mask: Path, device: str | None)
 
     elif input_path.is_dir():
         print(f"Input Dir: {input_path}\nMask:  {mask}\nOutput Dir: {output_path}")
-        inpaint_batch(
-            input_path=input_path,
-            output_path=output_path,
-            mask=mask,
-            inpainter=make_inpainter(device),
-        )
+        inpaint_batch(input_path=input_path, output_path=output_path, mask=mask, inpainter=make_inpainter(device))
 
     else:
         print(f"Input Image: {input_path}\nMask:  {mask}\nOutput Image: {output_path}")

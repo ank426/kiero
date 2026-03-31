@@ -106,10 +106,7 @@ def require_exists(path: Path, label: str = "Input") -> None:
 
 
 def validate(
-    input_path: Path,
-    output_path: Path | None = None,
-    mask_input: Path | None = None,
-    mask_output: Path | None = None,
+    input_path: Path, output_path: Path | None = None, mask_input: Path | None = None, mask_output: Path | None = None
 ) -> None:
     require_exists(input_path, "Input")
     if not (is_cbz(input_path) or input_path.is_dir() or is_image(input_path)):

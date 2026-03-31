@@ -6,6 +6,7 @@ from kiero.detectors.base import WatermarkDetector
 if TYPE_CHECKING:
     from ultralytics.engine.results import Results
 
+
 class YoloDetector(WatermarkDetector):
     _MODEL_REPO = "corzent/yolo11x_watermark_detection"
 

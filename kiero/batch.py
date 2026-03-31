@@ -140,18 +140,9 @@ def run_batch(
 
     else:
         mask = detect_batch(
-            input_path=input_path,
-            output_path=None,
-            detector=detector,
-            confidence=confidence,
-            memory=memory,
+            input_path=input_path, output_path=None, detector=detector, confidence=confidence, memory=memory
         )
         if mask_output is not None:
             save_image(mask, mask_output)
             print(f"  Shared mask saved to {mask_output}")
-        inpaint_batch(
-            input_path=input_path,
-            output_path=output_path,
-            mask=mask,
-            inpainter=inpainter,
-        )
+        inpaint_batch(input_path=input_path, output_path=output_path, mask=mask, inpainter=inpainter)

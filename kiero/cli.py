@@ -112,10 +112,7 @@ def main() -> None:
             )
         case "inpaint":
             commands.inpaint(
-                input_path=Path(args.input),
-                output_path=Path(args.output),
-                mask=Path(args.mask),
-                device=args.device,
+                input_path=Path(args.input), output_path=Path(args.output), mask=Path(args.mask), device=args.device
             )
         case _:
             parser.print_help()

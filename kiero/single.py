@@ -63,12 +63,7 @@ def run(
     image = load_image(image_path)
     t0 = time.time()
     mask = detect(
-        image,
-        output_path=mask_path,
-        confidence=confidence,
-        padding=padding,
-        device=device,
-        detector=detector,
+        image, output_path=mask_path, confidence=confidence, padding=padding, device=device, detector=detector
     )
     det_time = time.time() - t0
     if mask_ratio(mask) == 0:
