@@ -8,10 +8,3 @@ wheels/
 
 # Virtual environments
 .venv
-
-# Linter cache
-.ruff_cache/
-
-# Model cache
-*.pt
-*.onnx
