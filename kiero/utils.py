@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import shutil
 import sys
 import tempfile
 import zipfile
-from typing import TYPE_CHECKING
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
@@ -132,13 +134,13 @@ def validate(
 # --- Lazy Component Factories ---
 
 
-def make_detector(confidence: float, padding: int, device: str | None) -> "WatermarkDetector":
+def make_detector(confidence: float, padding: int, device: str | None) -> WatermarkDetector:
     from kiero.detectors.yolo import YoloDetector
 
     return YoloDetector(confidence=confidence, padding=padding, device=device)
 
 
-def make_inpainter(device: str | None) -> "Inpainter":
+def make_inpainter(device: str | None) -> Inpainter:
     from kiero.inpainters.lama import LamaInpainter
 
     return LamaInpainter(device=device)

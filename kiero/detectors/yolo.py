@@ -1,5 +1,8 @@
-import numpy as np
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
+
+import numpy as np
 
 from kiero.detectors.base import WatermarkDetector
 
@@ -17,17 +20,17 @@ class YoloDetector(WatermarkDetector):
     def _load_model(self) -> None:
         if self._model is not None:
             return
-        from ultralytics import YOLO  # pyright: ignore[reportPrivateImportUsage]
         from huggingface_hub import hf_hub_download
+        from ultralytics import YOLO  # pyright: ignore[reportPrivateImportUsage]
 
         self._model = YOLO(hf_hub_download(repo_id=self._MODEL_REPO, filename="best.pt"))
 
-    def _run(self, source: np.ndarray | list[np.ndarray]) -> list["Results"]:
+    def _run(self, source: np.ndarray | list[np.ndarray]) -> list[Results]:
         self._load_model()
         assert self._model is not None
         return self._model(source, conf=self._confidence, device=self._device, verbose=False)
 
-    def _to_mask(self, results: list["Results"], h: int, w: int, n: int) -> np.ndarray:
+    def _to_mask(self, results: list[Results], h: int, w: int, n: int) -> np.ndarray:
         masks = np.zeros((n, h, w), dtype=np.uint8)
         pad = self._padding
 
