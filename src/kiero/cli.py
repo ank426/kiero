@@ -30,7 +30,7 @@ def _add_help(p: argparse.ArgumentParser) -> None:
     p.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help="Show this help message and exit")
 
 
-def _subparser(sub, name: str, *, desc: str, usage: str) -> argparse.ArgumentParser:
+def _subparser(sub: argparse._SubParsersAction, name: str, *, desc: str, usage: str) -> argparse.ArgumentParser:
     p = sub.add_parser(name, help=desc, usage=usage, formatter_class=_Formatter, add_help=False)
     _add_help(p)
     p.add_argument("input", help="Image, directory, or .cbz file")
