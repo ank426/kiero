@@ -30,8 +30,8 @@ def detect_batch(
 
     print(f"  Computing shared mask from {n} images (~{memory}MB per batch)...")
 
-    mask_sum: np.ndarray | None = None
-    ref_shape: tuple[int, int] | None = None
+    ref_shape: tuple[int, ...] = load_image(sampled[0]).shape[:2]
+    mask_sum = np.zeros(ref_shape, dtype=np.float32)
 
     batch: list[np.ndarray] = []
     batch_bytes = 0
@@ -47,7 +47,7 @@ def detect_batch(
         # Expect a single averaged HxW mask in uint8 or float.
         m_arr = np.asarray(m_raw, dtype=np.float32)
         m = m_arr if (m_arr.size and m_arr.max() <= 1.0) else (m_arr / 255.0)
-        mask_sum = m * k if mask_sum is None else mask_sum + m * k
+        mask_sum += m * k
         processed += k
         print(f"  Processed {processed}/{n} images...")
         batch, batch_bytes = [], 0
@@ -55,9 +55,7 @@ def detect_batch(
     for p in sampled:
         img = load_image(p)
 
-        if ref_shape is None:
-            ref_shape = img.shape[:2]
-        elif img.shape[:2] != ref_shape:
+        if img.shape[:2] != ref_shape:
             sys.exit(f"Error: {p} has shape {img.shape[:2]}, expected {ref_shape}")
 
         if img.nbytes > memory_limit:

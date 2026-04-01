@@ -1,5 +1,6 @@
 import argparse
 import shutil
+from collections.abc import Iterable
 from pathlib import Path
 
 from kiero import commands
@@ -12,8 +13,8 @@ class _Formatter(argparse.HelpFormatter):
     def _format_usage(
         self,
         usage: str | None,
-        actions: list[argparse.Action],
-        groups: list[argparse._ArgumentGroup | argparse._MutuallyExclusiveGroup],
+        actions: Iterable[argparse.Action],
+        groups: Iterable[argparse._MutuallyExclusiveGroup],
         prefix: str | None,
     ) -> str:
         if prefix is None:

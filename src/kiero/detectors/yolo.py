@@ -21,7 +21,7 @@ class YoloDetector(WatermarkDetector):
         if self._model is not None:
             return
         from huggingface_hub import hf_hub_download
-        from ultralytics import YOLO  # pyright: ignore[reportPrivateImportUsage]
+        from ultralytics import YOLO
 
         self._model = YOLO(hf_hub_download(repo_id=self._MODEL_REPO, filename="best.pt"))
 
@@ -44,9 +44,11 @@ class YoloDetector(WatermarkDetector):
         return masks.astype(np.float32).mean(axis=0)
 
     def detect(self, image: np.ndarray) -> np.ndarray:
-        return self._to_mask(self._run(image), *image.shape[:2], 1)
+        h, w = image.shape[:2]
+        return self._to_mask(self._run(image), h, w, 1)
 
     def detect_batch(self, images: list[np.ndarray]) -> np.ndarray:
         if not images:
             return np.array([])
-        return self._to_mask(self._run(images), *images[0].shape[:2], len(images))
+        h, w = images[0].shape[:2]
+        return self._to_mask(self._run(images), h, w, len(images))

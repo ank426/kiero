@@ -10,6 +10,7 @@ dependencies = [
     "Pillow",
     "torch",
     "ultralytics",
+    "huggingface-hub",
     "simple-lama-inpainting",
 ]
 
