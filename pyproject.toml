@@ -14,9 +14,9 @@ dependencies = [
     "simple-lama-inpainting",
 ]
 
+[project.scripts]
+kiero = "kiero.cli:main"
+
 [build-system]
 requires = ["uv_build>=0.10,<0.11"]
 build-backend = "uv_build"
-
-[project.scripts]
-kiero = "kiero.cli:main"
