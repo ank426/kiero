@@ -34,7 +34,10 @@ class LamaInpainter(Inpainter):
         result_bgr = cv2.cvtColor(np.array(result_pil), cv2.COLOR_RGB2BGR)
 
         if not needs_resize:
-            return result_bgr
+            result_bgr = result_bgr[:h, :w]
+            out = image.copy()
+            out[mask > 127] = result_bgr[mask > 127]
+            return out
 
         full = cv2.resize(result_bgr, (w, h), interpolation=cv2.INTER_LANCZOS4)
         out = image.copy()
